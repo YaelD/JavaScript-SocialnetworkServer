@@ -10,8 +10,11 @@ const app = express()
 let  port = 2718;
 const user_id_map = new Map();//Map(email=> ID)
 let user_id = 0;
+let post_id = 0;
+let message_id = 0;
 const tokens_map = new Map();
 const user_details_file = "/user_details.json"
+const posts_path = "./posts.json";
 
 //------------------------------------------------------------------------------------------------
 // General app settings
@@ -47,10 +50,11 @@ const User = function(email, password, full_name){
 }
 //------------------------------------------------------------------------------------------------
 
-const Post = function(message, user_id){
-	this.creator_id = user_id;
+const Post = function(message, sender_id){
+	this.creator_id = sender_id;
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
+	this.post_id = 38;
 }
 //------------------------------------------------------------------------------------------------
 
@@ -204,7 +208,7 @@ async function write_user_data_to_file( new_user)
 
 async function check_if_email_exist(email)
 {
-	console.log("IN CHECK_EMAIL===>", user_id_map.has(email));
+	//console.log("IN CHECK_EMAIL===>", user_id_map.has(email));
 	if(user_id_map.has(email)){
 		return true;
 	}
@@ -272,7 +276,7 @@ async function get_num_of_files()
 	}
 	user_id = (await fs.readdir( './users')).length +1;
 	await get_all_mails();
-	console.log("get Num of Files==> num of files=%d", user_id);
+	//console.log("get Num of Files==> num of files=%d", user_id);
 }
 //------------------------------------------------------------------------------------------------
 
@@ -337,39 +341,115 @@ function update_user( req, res )
 }
 //------------------------------------------------------------------------------------------------
 
-function posting_new_post(req, res){
-	const token = req.get("Token");
+async function posting_new_post(req, res){
+	
 	const message = req.body.message;
 
-	if(!tokens_map.has(token)){
-		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
+	let id = get_id_from_token(req, res);
+	if(id == null){
 		return;
 	}
-
-	const id = tokens_map.get(token);
 	
+	let post = new Post(message, id);
+	let post_json = JSON.stringify(post);
+	await add_post(post_json);
+	//await write_data_to_file(","+post_json + "\n", "./posts", "a");
+	res.send("Your Post with id: " + post.post_id+ " was created");
+}
+//------------------------------------------------------------------------------------------------
+async function add_post(new_post){
+	let all_posts = await get_all_posts();
+	console.log("ADD_NEW_POST===>", new_post);
+	all_posts.push(new_post);
+	await write_data_to_file(all_posts, posts_path);
+}
+
+//------------------------------------------------------------------------------------------------
+function get_id_from_token(req, res)
+{
+	const token = req.get("Token");
+	if(!tokens_map.has(token)){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
+		return null;
+	}
+	const id = parseInt(tokens_map.get(token));
+	return id;
+}
+//------------------------------------------------------------------------------------------------
+async function send_all_posts(req, res){
+	const id = get_id_from_token(req, res);
+	let arr_posts = await get_all_posts();
+	res.send(JSON.stringify(arr_posts));
+}
+//------------------------------------------------------------------------------------------------
+
+async function get_all_posts()
+{
+	if(!(await exists(posts_path))){
+		await fs.writeFile(posts_path, JSON.stringify([]));
+	}
+	let posts = await read_file(posts_path);
+	posts_json = JSON.parse(posts);
+	return posts_json;
+}
+
+//------------------------------------------------------------------------------------------------
+async function write_data_to_file(data ,path, mode)
+{
+	await fs.writeFile(path, JSON.stringify(data), {flag:mode});
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function delete_a_post(req, res)
+{
+	let index_to_delete = -1;
+	let post_to_delete = parseInt(req.body.id);
+	let id = (get_id_from_token(req, res));
+	if(id == null){
+		return;
+	}
+	let arr_posts = await get_all_posts(); 	
+	for(let i = 0; i < arr_posts.length; ++i){
+		curr_post = JSON.parse(arr_posts[i]);
+		if(curr_post.post_id == post_to_delete){
+			if(curr_post.creator_id == id){
+				index_to_delete = i;
+			}
+		}
+	}
+	if(arr_posts.length == 0){
+		send_error_response(StatusCodes.BAD_REQUEST, "There are no posts in the server", res);
+		return;
+	}
+	if(index_to_delete == -1){
+		send_error_response(StatusCodes.BAD_REQUEST, "Invalid post id", res);
+		return
+	}
+	
+	arr_posts.splice(index_to_delete, 1);
+	write_data_to_file(arr_posts, posts_path);
+	res.send("Post with id: ", post_to_delete, "was deleted successfully");
 }
 
 
-//------------------------------------------------------------------------------------------------
+
 // Routing
 
 const router = express.Router();
 
 router.post('/users/login', (req, res) => { login(req, res) })
 router.post('/users/register', (req, res) => { register(req, res) })
-router.put('/users/(:id)/post', (req, res) => { posting_new_post(req, res) })
-router.delete('/users/(:id)/post/(:post_id)', (req, res) => { delete_a_post(req, res) })
-router.get('/users/(:id)/post', (req, res) => { get_all_user_posts(req, res) })
+router.put('/users/post', (req, res) => { posting_new_post(req, res) })
+router.delete('/users/post', (req, res) => { delete_a_post(req, res) })
+router.get('/users/post', (req, res) => { send_all_posts(req, res) })
 router.put('/users/(:id)/message', (req, res) => { send_message(req, res) })
 router.get('/users/(:id)/message', (req, res) => { get_all_messages(req, res) })
 router.get('/admin/users', (req, res) => { get_all_users_by_admin(req, res) })
 router.put('/admin/users/(:id)', (req, res) => { update_user_status_by_admin(req, res) })
 router.post('/admin/message', (req, res) => { send_broadcast_message_by_admin(req, res) })
 router.delete('/admin/user/(:id)/posts/(:post_id)', (req, res) => { delete_a_post_by_admin(req, res) })
-
 app.use('/api',router)
-
 
 // Init 
 
