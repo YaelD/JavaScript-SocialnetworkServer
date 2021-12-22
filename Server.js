@@ -5,11 +5,15 @@ const package = require('./package.json');
 const crypto = require('crypto');
 const fs = require("fs").promises;
 
+
 const app = express()
 let  port = 2718;
-
+const user_id_map = new Map();//Map(email=> ID)
 let user_id = 0;
+const tokens_map = new Map();
+const user_details_file = "/user_details.json"
 
+//------------------------------------------------------------------------------------------------
 // General app settings
 const set_content_type = function (req, res, next) 
 {
@@ -24,26 +28,18 @@ app.use(express.urlencoded( // to support URL-encoded bodies
   extended: true
 }));
 
+//------------------------------------------------------------------------------------------------
 
 // User's table
 const g_users = [ {id:1, name: 'Root'} ];
 
-const user_details_file = "/user_details.json"
-//const posts
 
-const tokens = [];
-
-const Token = function(user_id, user_token){
-	this.id = user_id;
-	this.token = user_token;
-}
-
-
+//------------------------------------------------------------------------------------------------
 //User constructor 
 const User = function(email, password, full_name){
 	this.email_address = email;
 	this.name = full_name;
-	this.id = find_max_id();
+	this.id = user_id++;
 	this.status = "created";
 	let today = new Date();
 	let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
@@ -52,16 +48,7 @@ const User = function(email, password, full_name){
 	this.salt = crypto.randomBytes(16).toString('hex');
 	this.hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, `sha512`).toString(`hex`);
 }
-
-function find_max_id()
-{
-	let max_id = 0;
-	g_users.forEach(
-		item => { max_id = Math.max( max_id, item.id) }
-	)
-	return (max_id+1);
-}
-
+//------------------------------------------------------------------------------------------------
 
 
 
@@ -130,7 +117,7 @@ function delete_user( req, res )
 	g_users.splice( idx, 1 )
 	res.send(  JSON.stringify( {}) );   
 }
-
+//------------------------------------------------------------------------------------------------
 async function register( req, res )
 {
 	const full_name = req.body.name;
@@ -141,52 +128,112 @@ async function register( req, res )
 		return;
 	}
 
-	if(check_if_email_exist(email, res)){
+	if(await check_if_email_exist(email)){
+		send_error_response(StatusCodes.BAD_REQUEST, "Email is already exist", res);
 		return;
 	}
 
 	const new_user = new User(email, password, full_name);
 	g_users.push( new_user );
+	set_token(res, new_user);
 
-	const token = crypto.randomBytes(7).toString("hex");
-	tokens.push(new Token(new_user.id, token));
-	res.setHeader("Token",token);
+	user_id_map.set(new_user.email_address, new_user.id);
 
-	write_user_data_to_file(new_user);
+
+	await write_user_data_to_file(new_user);
 
 	res.send(JSON.stringify(new_user, ['name', 'email', 'id', 'status', 'creation_date']));    
 }
+//------------------------------------------------------------------------------------------------
+async function login(req, res){
+	let email = req.body.email;
+	let password = req.body.password;
+
+	let user_data = get_user_by_email(email);
+	if( user_data == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "Email is not exist", res);
+		return;
+	}
+	if(!check_password(password, user_data)){
+		send_error_response(StatusCodes.BAD_REQUEST, "Password is incorrect", res);
+	}
+	set_token(res, user_data);
+	res.send();
+}
+
+//------------------------------------------------------------------------------------------------
+
+function set_token(res, new_user){
+	const token = crypto.randomBytes(7).toString("hex");
+	tokens_map.set(token,new_user.id);
+	res.setHeader("Token",token);
+}
+//------------------------------------------------------------------------------------------------
+function check_password(password, user_data){
+
+	let hash = crypto.pbkdf2Sync(password, user_data.salt.toString(), 1000, 64, `sha512`).toString(`hex`);
+	return (hash == user_data.hash.toString());
+}
+//------------------------------------------------------------------------------------------------
 
 async function write_user_data_to_file( new_user)
 { 	
 	let path_dir = "./users/" + new_user.id
-	await fs.mkdir(path_dir, (err) => {
-		if (err) {
-			console.log(err);
-		}
-		console.log("Directory is created.");
-	});
-	//let path = new_user.id + user_details_file;
+	await fs.mkdir(path_dir);
 	await fs.writeFile( path_dir + user_details_file, JSON.stringify(new_user) );
 }
+//------------------------------------------------------------------------------------------------
 
-async function check_if_email_exist(email, res)
+async function check_if_email_exist(email)
 {
-	let is_email_exist = false;
-	for( let i = 1; i < user_id; i++)
-	{
-		let json_data = await fs.readFile( './users/' + i + user_details_file );
-		let user_data =JSON.parse(json_data);
-		if(user_data.email == email)
-		{
-			is_email_exist = true;
-			res.status( StatusCodes.BAD_REQUEST );
-			res.send("Email is already exist");
-		}
+	console.log("IN CHECK_EMAIL===>", user_id_map.has(email));
+	if(user_id_map.has(email)){
+		return true;
 	}
-	return is_email_exist;
+	return false;
+}
+//------------------------------------------------------------------------------------------------
+
+async function get_user_by_email(email)
+{
+	if(user_id_map.has(email)){
+		let id = user_id_map.get(email);
+		let json_data = await read_file('./users/' + id + user_details_file);
+		return JSON.parse(json_data);
+	}
+	return null;
 }
 
+//------------------------------------------------------------------------------------------------
+
+function send_error_response (status_code, message, res){
+	res.status( status_code );
+	res.send( message );
+}
+//------------------------------------------------------------------------------------------------
+
+async function read_file(path){
+	try{
+		const content = await fs.readFile(path);
+		return content.toString();
+	}
+	catch (e){
+		return null;
+	}
+}
+//------------------------------------------------------------------------------------------------
+
+async function get_all_mails(){
+	for(let i = 1; i < user_id; ++i){
+		let content = await read_file('./users/' + i + user_details_file);
+		if(content!= null){
+			user_data = JSON.parse(content);
+			user_id_map.set(user_data.email_address, user_data.id);
+		}
+	}
+}
+
+//------------------------------------------------------------------------------------------------
 async function exists( path )
 {
     try {
@@ -198,26 +245,18 @@ async function exists( path )
         return false;
     }    
 }
-
+//------------------------------------------------------------------------------------------------
 async function get_num_of_files()
 {
 	if(!(await exists('./users'))){
 		user_id = 1;
 		await fs.mkdir('./users');
 	}
-
-	await fs.readdir( './users', (error, files) => { 
-		if(error){
-			user_id = 1;
-			fs.mkdir('./users');
-		}
-		else{
-			user_id = files.length; // return the number of files
-			console.log(totalFiles); // print the total number of files
-		}
-	 });
-	 
+	user_id = (await fs.readdir( './users')).length +1;
+	await get_all_mails();
+	console.log("get Num of Files==> num of files=%d", user_id);
 }
+//------------------------------------------------------------------------------------------------
 
 function is_valid_request ( full_name, email, password, res )
 {
@@ -243,6 +282,7 @@ function is_valid_request ( full_name, email, password, res )
 
 	return is_valid;
 }
+//------------------------------------------------------------------------------------------------
 
 function update_user( req, res )
 {
@@ -277,17 +317,10 @@ function update_user( req, res )
 
 	res.send(  JSON.stringify( {user}) );   
 }
-
+//------------------------------------------------------------------------------------------------
 // Routing
 
 const router = express.Router();
-
-// router.get('/version', (req, res) => { get_version(req, res )  } )
-// router.get('/users', (req, res) => { list_users(req, res )  } )
-// router.post('/users', (req, res) => { create_user(req, res )  } )
-// router.put('/user/(:id)', (req, res) => { update_user(req, res )  } )
-// router.get('/user/(:id)', (req, res) => { get_user(req, res )  })
-// router.delete('/user/(:id)', (req, res) => { delete_user(req, res )  })
 
 router.post('/users/login', (req, res) => { login(req, res) })
 router.post('/users/register', (req, res) => { register(req, res) })
