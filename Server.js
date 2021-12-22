@@ -41,15 +41,33 @@ const User = function(email, password, full_name){
 	this.name = full_name;
 	this.id = user_id++;
 	this.status = "created";
-	let today = new Date();
-	let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
-	let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
-	this.creation_date = date+' '+time; 
+	this.creation_date = get_date_and_time(); 
 	this.salt = crypto.randomBytes(16).toString('hex');
 	this.hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, `sha512`).toString(`hex`);
 }
 //------------------------------------------------------------------------------------------------
 
+const Post = function(message, user_id){
+	this.creator_id = user_id;
+	this.message = message;
+	this.creation_date = get_date_and_time(); 
+}
+//------------------------------------------------------------------------------------------------
+
+const Message = function(message, sender_id, receiver_id){
+	this.sender_id = sender_id;
+	this.receiver_id = receiver_id;
+	this.message = message;
+	this.creation_date = get_date_and_time(); 
+}
+//------------------------------------------------------------------------------------------------
+
+function get_date_and_time(){
+	let today = new Date();
+	let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+	let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+	return (date+' '+time);
+}
 
 
 // API functions
@@ -317,6 +335,22 @@ function update_user( req, res )
 
 	res.send(  JSON.stringify( {user}) );   
 }
+//------------------------------------------------------------------------------------------------
+
+function posting_new_post(req, res){
+	const token = req.get("Token");
+	const message = req.body.message;
+
+	if(!tokens_map.has(token)){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
+		return;
+	}
+
+	const id = tokens_map.get(token);
+	
+}
+
+
 //------------------------------------------------------------------------------------------------
 // Routing
 
