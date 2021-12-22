@@ -149,7 +149,7 @@ async function login(req, res){
 	let email = req.body.email;
 	let password = req.body.password;
 
-	let user_data = get_user_by_email(email);
+	let user_data = await get_user_by_email(email);
 	if( user_data == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "Email is not exist", res);
 		return;
