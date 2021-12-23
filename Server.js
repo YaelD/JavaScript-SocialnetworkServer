@@ -13,6 +13,7 @@ let user_id = 0;
 let post_id = 0;
 let message_id = 0;
 const tokens_map = new Map(); //Map(token=> ID)
+const admin = new User("admin@gmail.com", "1234", "Admin The Admin");
 
 const messages_file = "/messages.json"
 const user_details_file = "/user_details.json"
@@ -270,6 +271,18 @@ async function get_all_mails(){
 }
 
 //------------------------------------------------------------------------------------------------
+
+async function get_all_users(){
+	const arr_users = [];
+	for(let i = 1; i < user_id; ++i){
+		let content = await read_file('./users/' + i + user_details_file);
+		if(content!= null){
+			user_data = JSON.parse(content);
+			arr_users.push(user_data);
+		}
+	}
+	return arr_users;
+}
 async function exists( path )
 {
     try {
@@ -494,20 +507,129 @@ async function send_message(req, res)
 	}
 	let user_sender = await get_user_by_id(id_sender);
 	const id_reciever = user_reciever.id;
-	
 	const message = new Message(body ,user_sender.email_address, user_reciever.email_address, "sent");
-	let sender_mails = await get_arr_from_file("./users/" + id_sender + messages_file);
-	sender_mails.push(message);
-	write_data_to_file(sender_mails, "./users/" + id_sender + messages_file);
-	message.type_message = "recieved"
-	let reciever_mails = await get_arr_from_file("./users/" + id_reciever + messages_file);
-	reciever_mails.push(message);
-	write_data_to_file(reciever_mails, "./users/" + id_reciever + messages_file);
-	
+	await create_message(id_sender, message, "sent");
+	await create_message(id_reciever, message, "recieved");
 	res.send("Mail sent seccessfully!");
 }
+//------------------------------------------------------------------------------------------------
+
+async function get_all_messages(req, res)
+{
+	const id = get_id_from_token(req, res);
+
+	if(id == null){
+		return;
+	}
+
+	let arr = await get_arr_from_file('./users/' + id + messages_file);
+	res.send(JSON.stringify(arr));
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function get_all_users_by_admin(req, res)
+{
 
 
+	const users_arr = await get_all_users();
+	res.send(JSON.stringify(users_arr));
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function update_user_status_by_admin(req, res)
+{
+
+	let id = parseInt(req.body.id);
+	let user = await get_user_by_id(id);
+	if(user == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "Invaild id number", res);
+		return;
+	}
+	const status = req.body.status;
+	if(check_if_valid_status(status, res))
+	{
+		user.status = status;
+		await write_data_to_file(user, './users' + id + user_details_file);
+	}
+	else{
+		return;
+	}
+
+	res.send("Status changed successfully");
+}
+
+//------------------------------------------------------------------------------------------------
+
+function check_if_valid_status(status, res)
+{
+	if(status == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "There is no status", res);
+		return null;
+	}
+
+	if (status != "suspeneded" && status != "active" && status != "deleted"){
+		send_error_response(StatusCodes.BAD_REQUEST, "Invalid status", res);
+		return null;
+	}
+	
+	return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function send_broadcast_message_by_admin(req, res)
+{
+	if(!check_if_admin(req, res)){
+		return;
+	}
+	let body = req.body.text;
+	if(body == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "no body text", res);
+		return;
+	}
+
+	let users_arr = await get_all_users();
+	let message = new Message(body, "Admin", "everybody", "sent" );
+	await create_message(0, message, "sent");
+	for( let i= 0; i< users_arr.length; i++){
+		message = new Message(body, "Admin", users_arr[i].email_address, "recieved" );
+		 await create_message(users_arr[i].id, message, "received");
+	}
+}
+
+//------------------------------------------------------------------------------------------------
+function check_if_admin(req, res){
+	const id = get_id_from_token(req, res);
+	if( id == null){
+		return;
+	}
+	if(id != 0 ){
+		send_error_response(StatusCodes.FORBIDDEN, "This request allows only to the admin", res);
+		return;
+	}
+	return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function create_message(id, message, message_type)
+{
+	message.type_message = message_type;
+	let messages_arr = await get_arr_from_file("./users/" + id + messages_file);
+	messages_arr.push(message);
+	await write_data_to_file(messages_arr, "./users/" + id+ messages_file);
+}
+
+//------------------------------------------------------------------------------------------------
+
+async function delete_a_post_by_admin(req, res)
+{
+	
+}
+
+//------------------------------------------------------------------------------------------------
 
 // Routing
 
@@ -521,11 +643,13 @@ router.get('/users/post', (req, res) => { send_all_posts(req, res) })
 router.put('/users/message', (req, res) => { send_message(req, res) })
 router.get('/users/(:id)/message', (req, res) => { get_all_messages(req, res) })
 router.get('/admin/users', (req, res) => { get_all_users_by_admin(req, res) })
-router.put('/admin/users/(:id)', (req, res) => { update_user_status_by_admin(req, res) })
+router.put('/admin/users', (req, res) => { update_user_status_by_admin(req, res) })
 router.post('/admin/message', (req, res) => { send_broadcast_message_by_admin(req, res) })
-router.delete('/admin/user/(:id)/posts/(:post_id)', (req, res) => { delete_a_post_by_admin(req, res) })
-router.put('/users/logout', (req, res) => { delete_a_post_by_admin(req, res) })
+router.delete('/admin/posts', (req, res) => { delete_a_post_by_admin(req, res) })
+router.put('/users/logout', (req, res) => { logout(req, res) })
 app.use('/api',router)
+
+//TODO: ADD A STATUS VALIDATION OF THE USER BEFORE EVERY ACTION
 
 // Init 
 
