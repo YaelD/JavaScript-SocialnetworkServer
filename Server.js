@@ -13,6 +13,8 @@ let user_id = 0;
 let post_id = 0;
 let message_id = 0;
 const tokens_map = new Map(); //Map(token=> ID)
+
+const messages_file = "/messages.json"
 const user_details_file = "/user_details.json"
 const posts_path = "./posts.json";
 
@@ -58,9 +60,9 @@ const Post = function(message, sender_id){
 }
 //------------------------------------------------------------------------------------------------
 
-const Message = function(message, sender_id, receiver_id, type_message){
-	this.sender_id = sender_id;
-	this.receiver_id = receiver_id;
+const Message = function(message, sender, receiver, type_message){
+	this.sender = sender;
+	this.receiver = receiver;
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
 	this.type_message = type_message;
@@ -210,7 +212,6 @@ async function write_user_data_to_file( new_user)
 
 async function check_if_email_exist(email)
 {
-	//console.log("IN CHECK_EMAIL===>", user_id_map.has(email));
 	if(user_id_map.has(email)){
 		return true;
 	}
@@ -227,6 +228,17 @@ async function get_user_by_email(email)
 	}
 	return null;
 }
+
+//------------------------------------------------------------------------------------------------
+
+async function get_user_by_id(id){
+	if(! await(exists('./users/' + id + user_details_file))){
+		return null;
+	}
+	let json_data = await read_file('./users/' + id + user_details_file);
+	return await JSON.parse(json_data);
+}
+
 
 //------------------------------------------------------------------------------------------------
 
@@ -360,7 +372,7 @@ async function posting_new_post(req, res){
 }
 //------------------------------------------------------------------------------------------------
 async function add_post_to_file(new_post){
-	let all_posts = await get_all_posts();
+	let all_posts = await get_arr_from_file(posts_path);
 	console.log("ADD_NEW_POST===>", new_post);
 	all_posts.push(new_post);
 	await write_data_to_file(all_posts, posts_path);
@@ -380,19 +392,19 @@ function get_id_from_token(req, res)
 //------------------------------------------------------------------------------------------------
 async function send_all_posts(req, res){
 	const id = get_id_from_token(req, res);
-	let arr_posts = await get_all_posts();
+	let arr_posts = await get_arr_from_file(posts_path);
 	res.send(JSON.stringify(arr_posts));
 }
 //------------------------------------------------------------------------------------------------
 
-async function get_all_posts()
+async function get_arr_from_file(path)
 {
-	if(!(await exists(posts_path))){
-		await fs.writeFile(posts_path, JSON.stringify([]));
+	if(!(await exists(path))){
+		await fs.writeFile(path, JSON.stringify([]));
 	}
-	let posts = await read_file(posts_path);
-	posts_json = JSON.parse(posts);
-	return posts_json;
+	let arr = await read_file(path);
+	arr_json = JSON.parse(arr);
+	return arr_json;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -410,7 +422,7 @@ async function delete_a_post(req, res)
 	if(id == null){
 		return;
 	}
-	let arr_posts = await get_all_posts(); 	
+	let arr_posts = await get_arr_from_file(posts_path); 	
 	const index_to_delete = find_post_to_delete(post_arr, post_to_delete, id);
 
 	if(arr_posts.length == 0){
@@ -445,43 +457,54 @@ function find_post_to_delete(post_arr, post_to_delete, id)
 
 async function get_post_nubmer()
 {
-	const arr_posts = await get_all_posts();
+	const arr_posts = await get_arr_from_file(posts_path);
 	if(arr_posts.length == 0){
 		post_id = 0;
 	}
 	else{
-		curr_post = JSON.parse(arr_posts[length-1]);
+		curr_post = JSON.parse(arr_posts[arr_posts.length-1]);
 		post_id = curr_post.post_id + 1;
 	}
 }
 //------------------------------------------------------------------------------------------------
-function send_message(req, res)
+async function send_message(req, res)
 {
 	let message_destination = req.body.destination;
-	let user_reciever = get_user_by_email(message_destination);
-	const id_sender = get_id_from_token(req, res);
-
-	if(id_sender == null){
-		return;
-	}
-
-	if(email == null){
+	if(message_destination == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "Incorrect destination email", res);
 		return;
 	}
+	let body = req.body.text;
+	if(message_destination == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "no body text", res);
+		return;
+	}
 
+
+	let user_reciever = await get_user_by_email(message_destination);
+	if(user_reciever == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "There is no email " + message_destination + " in the system", res);
+		return;
+	}
+
+	const id_sender = get_id_from_token(req, res);
+	if(id_sender == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Invalid user", res);
+		return;
+	}
+	let user_sender = await get_user_by_id(id_sender);
 	const id_reciever = user_reciever.id;
 	
+	const message = new Message(body ,user_sender.email_address, user_reciever.email_address, "sended");
+	let sender_mails = await get_arr_from_file("./users/" + id_sender + messages_file);
+	sender_mails.push(message);
+	write_data_to_file(sender_mails, "./users/" + id_sender + messages_file);
+	message.type_message = "recieved"
+	let reciever_mails = await get_arr_from_file("./users/" + id_reciever + messages_file);
+	reciever_mails.push(message);
+	write_data_to_file(reciever_mails, "./users/" + id_reciever + messages_file);
 	
-	
-
-
-	
-
-	
-
-
-
+	res.send("Mail was sent seccessfully!");
 }
 
 
@@ -495,7 +518,7 @@ router.post('/users/register', (req, res) => { register(req, res) })
 router.put('/users/post', (req, res) => { posting_new_post(req, res) })
 router.delete('/users/post', (req, res) => { delete_a_post(req, res) })
 router.get('/users/post', (req, res) => { send_all_posts(req, res) })
-router.put('/users/(:id)/message', (req, res) => { send_message(req, res) })
+router.put('/users/message', (req, res) => { send_message(req, res) })
 router.get('/users/(:id)/message', (req, res) => { get_all_messages(req, res) })
 router.get('/admin/users', (req, res) => { get_all_users_by_admin(req, res) })
 router.put('/admin/users/(:id)', (req, res) => { update_user_status_by_admin(req, res) })
