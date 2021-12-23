@@ -81,69 +81,6 @@ function get_date_and_time(){
 
 // API functions
 
-// Version 
-function get_version( req, res) 
-{
-	const version_obj = { version: package.version, description: package.description };
-	res.send(  JSON.stringify( version_obj) );   
-}
-
-function list_users( req, res) 
-{
-	res.send(  JSON.stringify( g_users) );   
-}
-
-function get_user( req, res )
-{
-	const id =  parseInt( req.params.id );
-
-	if ( id <= 0)
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Bad id given")
-		return;
-	}
-
-	const user =  g_users.find( user =>  user.id == id )
-	if ( !user)
-	{
-		res.status( StatusCodes.NOT_FOUND );
-		res.send( "No such user")
-		return;
-	}
-
-	res.send(  JSON.stringify( user) );   
-}
-
-function delete_user( req, res )
-{
-	const id =  parseInt( req.params.id );
-
-	if ( id <= 0)
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Bad id given")
-		return;
-	}
-
-	if ( id == 1)
-	{
-		res.status( StatusCodes.FORBIDDEN ); // Forbidden
-		res.send( "Can't delete root user")
-		return;		
-	}
-
-	const idx =  g_users.findIndex( user =>  user.id == id )
-	if ( idx < 0 )
-	{
-		res.status( StatusCodes.NOT_FOUND );
-		res.send( "No such user")
-		return;
-	}
-
-	g_users.splice( idx, 1 )
-	res.send(  JSON.stringify( {}) );   
-}
 //------------------------------------------------------------------------------------------------
 async function register( req, res )
 {
@@ -283,6 +220,8 @@ async function get_all_users(){
 	}
 	return arr_users;
 }
+
+//------------------------------------------------------------------------------------------------
 async function exists( path )
 {
     try {
@@ -330,41 +269,6 @@ function is_valid_request ( full_name, email, password, res )
 	}
 
 	return is_valid;
-}
-//------------------------------------------------------------------------------------------------
-
-function update_user( req, res )
-{
-	const id =  parseInt( req.params.id );
-
-	if ( id <= 0)
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Bad id given")
-		return;
-	}
-
-	const idx =  g_users.findIndex( user =>  user.id == id )
-	if ( idx < 0 )
-	{
-		res.status( StatusCodes.NOT_FOUND );
-		res.send( "No such user")
-		return;
-	}
-
-	const name = req.body.name;
-
-	if ( !name)
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Missing name in request")
-		return;
-	}
-
-	const user = g_users[idx];
-	user.name = name;
-
-	res.send(  JSON.stringify( {user}) );   
 }
 //------------------------------------------------------------------------------------------------
 
@@ -431,35 +335,44 @@ async function write_data_to_file(data ,path, mode)
 async function delete_a_post(req, res)
 {
 	let post_to_delete = parseInt(req.body.id);
-	let id = (get_id_from_token(req, res));
-	if(id == null){
+	let curr_user_id = (get_id_from_token(req, res));
+	if(curr_user_id == null){
 		return;
 	}
-	let arr_posts = await get_arr_from_file(posts_path); 	
-	const index_to_delete = find_post_to_delete(post_arr, post_to_delete, id);
-
-	if(arr_posts.length == 0){
-		send_error_response(StatusCodes.BAD_REQUEST, "There are no posts in the server", res);
+	if(!remove_post(post_to_delete, curr_user_id, res)){
 		return;
+	}
+	res.send("Post with id: ", post_to_delete, "was deleted successfully");
+}
+//------------------------------------------------------------------------------------------------
+
+async function remove_post(post_to_delete, curr_user_id, res)
+{
+	let post_arr = await get_arr_from_file(posts_path); 	
+	const index_to_delete = find_post_to_delete(post_arr, post_to_delete, curr_user_id);
+
+	if(post_arr.length == 0){
+		send_error_response(StatusCodes.BAD_REQUEST, "There are no posts in the server", res);
+		return false;
 	}
 	if(index_to_delete == -1){
 		send_error_response(StatusCodes.BAD_REQUEST, "Invalid post id", res);
-		return
+		return false;
 	}
 	
-	arr_posts.splice(index_to_delete, 1);
-	write_data_to_file(arr_posts, posts_path);
-	res.send("Post with id: ", post_to_delete, "was deleted successfully");
+	post_arr.splice(index_to_delete, 1);
+	write_data_to_file(post_arr, posts_path);
+	return true;
 }
 //------------------------------------------------------------------------------------------------
 
 function find_post_to_delete(post_arr, post_to_delete, id)
 {
 	let index_to_delete = -1;
-	for(let i = 0; i < arr_posts.length; ++i){
-		curr_post = JSON.parse(arr_posts[i]);
+	for(let i = 0; i < post_arr.length; ++i){
+		curr_post = JSON.parse(post_arr[i]);
 		if(curr_post.post_id == post_to_delete){
-			if(curr_post.creator_id == id){
+			if(curr_post.creator_id == id || id == 0){
 				index_to_delete = i;
 			}
 		}
@@ -603,11 +516,11 @@ async function send_broadcast_message_by_admin(req, res)
 function check_if_admin(req, res){
 	const id = get_id_from_token(req, res);
 	if( id == null){
-		return;
+		return false;
 	}
 	if(id != 0 ){
 		send_error_response(StatusCodes.FORBIDDEN, "This request allows only to the admin", res);
-		return;
+		return false;
 	}
 	return true;
 }
@@ -626,10 +539,30 @@ async function create_message(id, message, message_type)
 
 async function delete_a_post_by_admin(req, res)
 {
-	
+	let id_of_post = req.body.post_id;
+	if(id_of_post == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "There is no post id");
+	}
+	if( !check_if_admin(req, res)){
+		return;
+	}
+	if(!remove_post(id_of_post, 0, res)){
+		return;
+	}
+	res.send("The post number", id_of_post, "deleted successfully!!");
 }
 
 //------------------------------------------------------------------------------------------------
+
+function logout(req, res)
+{
+	const token = req.get("Token");
+	if(!tokens_map.has(token)){
+		send_error_response(StatusCodes.BAD_REQUEST, "Undefined token", res);
+	}
+	tokens_map.delete(token);
+	res.send("Logout successfully");
+}
 
 // Routing
 
