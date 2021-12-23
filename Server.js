@@ -13,7 +13,6 @@ let user_id = 0;
 let post_id = 0;
 let message_id = 0;
 const tokens_map = new Map(); //Map(token=> ID)
-const admin = new User("admin@gmail.com", "1234", "Admin The Admin");
 
 const messages_file = "/messages.json"
 const user_details_file = "/user_details.json"
@@ -35,12 +34,6 @@ app.use(express.urlencoded( // to support URL-encoded bodies
 }));
 
 //------------------------------------------------------------------------------------------------
-
-// User's table
-const g_users = [ {id:1, name: 'Root'} ];
-
-
-//------------------------------------------------------------------------------------------------
 //User constructor 
 const User = function(email, password, full_name){
 	this.email_address = email;
@@ -53,11 +46,12 @@ const User = function(email, password, full_name){
 }
 //------------------------------------------------------------------------------------------------
 
-const Post = function(message, sender_id){
+const Post = function(message, sender_id, email){
 	this.creator_id = sender_id;
+	this.email = email;
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
-	this.post_id = 38;
+	this.post_id = post_id++;
 }
 //------------------------------------------------------------------------------------------------
 
@@ -67,7 +61,7 @@ const Message = function(message, sender, receiver, type_message){
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
 	this.type_message = type_message;
-	this.message_id = 1;
+	this.message_id = message_id++;
 }
 //------------------------------------------------------------------------------------------------
 
@@ -77,6 +71,8 @@ function get_date_and_time(){
 	let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
 	return (date+' '+time);
 }
+
+const admin = new User("admin@gmail.com", "1234", "Admin The Admin");
 
 
 // API functions
@@ -98,9 +94,13 @@ async function register( req, res )
 	}
 
 	const new_user = new User(email, password, full_name);
-	g_users.push( new_user );
-	set_token(res, new_user);
 
+	//User Should not beable to do stuff after registering
+
+	// if(!set_token(res, user_data)){
+	// 	send_error_response(StatusCodes.UNAUTHORIZED, "The user is already logged in", res);
+	// 	return;
+	// }
 	user_id_map.set(new_user.email_address, new_user.id);
 
 
@@ -120,18 +120,42 @@ async function login(req, res){
 	}
 	if(!check_password(password, user_data)){
 		send_error_response(StatusCodes.BAD_REQUEST, "Password is incorrect", res);
+		return;
 	}
-	set_token(res, user_data);
-	res.send();
+	if(user_data.status != "active"){
+		send_error_response(StatusCodes.UNAUTHORIZED, "You should wait until the Admin will approve you", res);
+		return;
+	}
+
+	if(!set_token(res, user_data)){
+		send_error_response(StatusCodes.UNAUTHORIZED, "The user is already logged in", res);
+		return;
+	}
+	res.send("Logged in successfully");
 }
 
 //------------------------------------------------------------------------------------------------
 
 function set_token(res, new_user){
+	if(check_if_user_logged_in(new_user.id)){
+		return false;
+	}
 	const token = crypto.randomBytes(7).toString("hex");
 	tokens_map.set(token,new_user.id);
 	res.setHeader("Token",token);
+	return true;
 }
+//------------------------------------------------------------------------------------------------
+function check_if_user_logged_in(id){
+	let res = false;
+	for(let v of tokens_map.values()){
+		if(v === id){
+			res = true;
+		}
+	}
+	return res;
+}
+
 //------------------------------------------------------------------------------------------------
 function check_password(password, user_data){
 
@@ -234,15 +258,18 @@ async function exists( path )
     }    
 }
 //------------------------------------------------------------------------------------------------
-async function get_num_of_files()
+async function count_num_of_users()
 {
 	if(!(await exists('./users'))){
 		user_id = 1;
 		await fs.mkdir('./users');
 	}
-	user_id = (await fs.readdir( './users')).length +1;
+	else{
+		user_id = (await fs.readdir( './users')).length;
+	}
+
 	await get_all_mails();
-	//console.log("get Num of Files==> num of files=%d", user_id);
+	console.log("get Num of Files==> num of files=%d", user_id);
 }
 //------------------------------------------------------------------------------------------------
 
@@ -274,16 +301,17 @@ function is_valid_request ( full_name, email, password, res )
 
 async function posting_new_post(req, res){
 	
-	const message = req.body.message;
+	const text = req.body.text;
+	console.log("IN POST NEW POST==> text", text);
 
 	let id = get_id_from_token(req, res);
 	if(id == null){
 		return;
 	}
-	
-	let post = new Post(message, id);
-	let post_json = JSON.stringify(post);
-	await add_post_to_file(post_json);
+	let user = await get_user_by_id(id)
+	let post = new Post(text, id, user.email_address);
+	//let post_json = JSON.stringify(post);
+	await add_post_to_file(post);
 	//await write_data_to_file(","+post_json + "\n", "./posts", "a");
 	res.send("Your Post with id: " + post.post_id+ " was created");
 }
@@ -307,10 +335,13 @@ function get_id_from_token(req, res)
 	return id;
 }
 //------------------------------------------------------------------------------------------------
-async function send_all_posts(req, res){
+async function get_all_posts(req, res){
 	const id = get_id_from_token(req, res);
+
 	let arr_posts = await get_arr_from_file(posts_path);
-	res.send(JSON.stringify(arr_posts));
+	//	res.send(await JSON.stringify(arr_posts));
+
+	res.send(await JSON.stringify(arr_posts, ['email', 'message', 'creation_date']));
 }
 //------------------------------------------------------------------------------------------------
 
@@ -339,10 +370,10 @@ async function delete_a_post(req, res)
 	if(curr_user_id == null){
 		return;
 	}
-	if(!remove_post(post_to_delete, curr_user_id, res)){
+	if(! (await remove_post(post_to_delete, curr_user_id, res)) ){
 		return;
 	}
-	res.send("Post with id: ", post_to_delete, "was deleted successfully");
+	res.send("Post with id: " + post_to_delete + "was deleted successfully");
 }
 //------------------------------------------------------------------------------------------------
 
@@ -370,7 +401,7 @@ function find_post_to_delete(post_arr, post_to_delete, id)
 {
 	let index_to_delete = -1;
 	for(let i = 0; i < post_arr.length; ++i){
-		curr_post = JSON.parse(post_arr[i]);
+		curr_post = post_arr[i];
 		if(curr_post.post_id == post_to_delete){
 			if(curr_post.creator_id == id || id == 0){
 				index_to_delete = i;
@@ -381,14 +412,14 @@ function find_post_to_delete(post_arr, post_to_delete, id)
 }
 //------------------------------------------------------------------------------------------------
 
-async function get_post_nubmer()
+async function count_num_of_posts()
 {
 	const arr_posts = await get_arr_from_file(posts_path);
 	if(arr_posts.length == 0){
 		post_id = 0;
 	}
 	else{
-		curr_post = JSON.parse(arr_posts[arr_posts.length-1]);
+		curr_post = arr_posts[arr_posts.length-1];
 		post_id = curr_post.post_id + 1;
 	}
 }
@@ -436,7 +467,9 @@ async function get_all_messages(req, res)
 	}
 
 	let arr = await get_arr_from_file('./users/' + id + messages_file);
-	res.send(JSON.stringify(arr));
+	//res.send(JSON.stringify(arr));
+	res.send(JSON.stringify(arr,['type_message','sender', 'receiver', 'message', 'creation_date']));
+
 }
 
 //------------------------------------------------------------------------------------------------
@@ -453,7 +486,9 @@ async function get_all_users_by_admin(req, res)
 
 async function update_user_status_by_admin(req, res)
 {
-
+	if(!check_if_admin(req,res)){
+		return;
+	}
 	let id = parseInt(req.body.id);
 	let user = await get_user_by_id(id);
 	if(user == null){
@@ -464,7 +499,7 @@ async function update_user_status_by_admin(req, res)
 	if(check_if_valid_status(status, res))
 	{
 		user.status = status;
-		await write_data_to_file(user, './users' + id + user_details_file);
+		await write_data_to_file(user, './users/' + id + user_details_file);
 	}
 	else{
 		return;
@@ -482,7 +517,7 @@ function check_if_valid_status(status, res)
 		return null;
 	}
 
-	if (status != "suspeneded" && status != "active" && status != "deleted"){
+	if (status != "suspended" && status != "active" && status != "deleted"){
 		send_error_response(StatusCodes.BAD_REQUEST, "Invalid status", res);
 		return null;
 	}
@@ -510,6 +545,8 @@ async function send_broadcast_message_by_admin(req, res)
 		message = new Message(body, "Admin", users_arr[i].email_address, "recieved" );
 		 await create_message(users_arr[i].id, message, "received");
 	}
+
+	res.send("Successfully boardcast a message!");
 }
 
 //------------------------------------------------------------------------------------------------
@@ -549,7 +586,7 @@ async function delete_a_post_by_admin(req, res)
 	if(!remove_post(id_of_post, 0, res)){
 		return;
 	}
-	res.send("The post number", id_of_post, "deleted successfully!!");
+	res.send("The post number" + id_of_post + "deleted successfully!!");
 }
 
 //------------------------------------------------------------------------------------------------
@@ -564,6 +601,42 @@ function logout(req, res)
 	res.send("Logout successfully");
 }
 
+
+//------------------------------------------------------------------------------------------------
+
+async function init_admin(){
+	admin.status = "active";
+	user_id_map.set(admin.email_address, admin.id);
+	if(! (await exists("./users/0"))){
+		await write_user_data_to_file(admin);
+	}
+
+}
+
+async function cout_num_of_messages(){	
+	for(let i =0; i < user_id; ++i){
+		if(await exists('./users/' + i + messages_file)){
+			let messages_arr = await get_arr_from_file('./users/' + i + messages_file);
+			for(let j = 0; j < messages_arr.length; ++j){
+				let curr_message = (messages_arr[j]);
+				if(message_id <= curr_message.message_id){
+					message_id = curr_message.message_id +1;
+				}
+			}
+		}
+	}
+	//console.log("GET NUM OF MESSAGES==>", message_id);
+}
+
+
+async function init_server(){
+	
+	await count_num_of_posts();
+	await count_num_of_users();
+	await cout_num_of_messages();
+	init_admin();
+}
+
 // Routing
 
 const router = express.Router();
@@ -572,9 +645,9 @@ router.post('/users/login', (req, res) => { login(req, res) })
 router.post('/users/register', (req, res) => { register(req, res) })
 router.put('/users/post', (req, res) => { posting_new_post(req, res) })
 router.delete('/users/post', (req, res) => { delete_a_post(req, res) })
-router.get('/users/post', (req, res) => { send_all_posts(req, res) })
+router.get('/users/post', (req, res) => { get_all_posts(req, res) })
 router.put('/users/message', (req, res) => { send_message(req, res) })
-router.get('/users/(:id)/message', (req, res) => { get_all_messages(req, res) })
+router.get('/users/message', (req, res) => { get_all_messages(req, res) })
 router.get('/admin/users', (req, res) => { get_all_users_by_admin(req, res) })
 router.put('/admin/users', (req, res) => { update_user_status_by_admin(req, res) })
 router.post('/admin/message', (req, res) => { send_broadcast_message_by_admin(req, res) })
@@ -586,8 +659,9 @@ app.use('/api',router)
 
 // Init 
 
-//init_server();
-get_post_nubmer();
-get_num_of_files();
+init_server();
+// get_post_nubmer();
+// get_num_of_users();
+// get_num_of_messages();
 let msg = `${package.description} listening at port ${port}`
 app.listen(port, () => { console.log( msg ) ; })
