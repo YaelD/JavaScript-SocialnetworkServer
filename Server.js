@@ -475,7 +475,7 @@ async function send_message(req, res)
 		return;
 	}
 	let body = req.body.text;
-	if(message_destination == null){
+	if(body == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "no body text", res);
 		return;
 	}
@@ -495,7 +495,7 @@ async function send_message(req, res)
 	let user_sender = await get_user_by_id(id_sender);
 	const id_reciever = user_reciever.id;
 	
-	const message = new Message(body ,user_sender.email_address, user_reciever.email_address, "sended");
+	const message = new Message(body ,user_sender.email_address, user_reciever.email_address, "sent");
 	let sender_mails = await get_arr_from_file("./users/" + id_sender + messages_file);
 	sender_mails.push(message);
 	write_data_to_file(sender_mails, "./users/" + id_sender + messages_file);
@@ -504,7 +504,7 @@ async function send_message(req, res)
 	reciever_mails.push(message);
 	write_data_to_file(reciever_mails, "./users/" + id_reciever + messages_file);
 	
-	res.send("Mail was sent seccessfully!");
+	res.send("Mail sent seccessfully!");
 }
 
 
