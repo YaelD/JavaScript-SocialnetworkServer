@@ -12,7 +12,7 @@ const user_id_map = new Map();//Map(email=> ID)
 let user_id = 0;
 let post_id = 0;
 let message_id = 0;
-const tokens_map = new Map();
+const tokens_map = new Map(); //Map(token=> ID)
 const user_details_file = "/user_details.json"
 const posts_path = "./posts.json";
 
@@ -58,11 +58,13 @@ const Post = function(message, sender_id){
 }
 //------------------------------------------------------------------------------------------------
 
-const Message = function(message, sender_id, receiver_id){
+const Message = function(message, sender_id, receiver_id, type_message){
 	this.sender_id = sender_id;
 	this.receiver_id = receiver_id;
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
+	this.type_message = type_message;
+	this.message_id = 1;
 }
 //------------------------------------------------------------------------------------------------
 
@@ -352,12 +354,12 @@ async function posting_new_post(req, res){
 	
 	let post = new Post(message, id);
 	let post_json = JSON.stringify(post);
-	await add_post(post_json);
+	await add_post_to_file(post_json);
 	//await write_data_to_file(","+post_json + "\n", "./posts", "a");
 	res.send("Your Post with id: " + post.post_id+ " was created");
 }
 //------------------------------------------------------------------------------------------------
-async function add_post(new_post){
+async function add_post_to_file(new_post){
 	let all_posts = await get_all_posts();
 	console.log("ADD_NEW_POST===>", new_post);
 	all_posts.push(new_post);
@@ -403,21 +405,14 @@ async function write_data_to_file(data ,path, mode)
 
 async function delete_a_post(req, res)
 {
-	let index_to_delete = -1;
 	let post_to_delete = parseInt(req.body.id);
 	let id = (get_id_from_token(req, res));
 	if(id == null){
 		return;
 	}
 	let arr_posts = await get_all_posts(); 	
-	for(let i = 0; i < arr_posts.length; ++i){
-		curr_post = JSON.parse(arr_posts[i]);
-		if(curr_post.post_id == post_to_delete){
-			if(curr_post.creator_id == id){
-				index_to_delete = i;
-			}
-		}
-	}
+	const index_to_delete = find_post_to_delete(post_arr, post_to_delete, id);
+
 	if(arr_posts.length == 0){
 		send_error_response(StatusCodes.BAD_REQUEST, "There are no posts in the server", res);
 		return;
@@ -430,6 +425,63 @@ async function delete_a_post(req, res)
 	arr_posts.splice(index_to_delete, 1);
 	write_data_to_file(arr_posts, posts_path);
 	res.send("Post with id: ", post_to_delete, "was deleted successfully");
+}
+//------------------------------------------------------------------------------------------------
+
+function find_post_to_delete(post_arr, post_to_delete, id)
+{
+	let index_to_delete = -1;
+	for(let i = 0; i < arr_posts.length; ++i){
+		curr_post = JSON.parse(arr_posts[i]);
+		if(curr_post.post_id == post_to_delete){
+			if(curr_post.creator_id == id){
+				index_to_delete = i;
+			}
+		}
+	}
+	return index_to_delete;
+}
+//------------------------------------------------------------------------------------------------
+
+async function get_post_nubmer()
+{
+	const arr_posts = await get_all_posts();
+	if(arr_posts.length == 0){
+		post_id = 0;
+	}
+	else{
+		curr_post = JSON.parse(arr_posts[length-1]);
+		post_id = curr_post.post_id + 1;
+	}
+}
+//------------------------------------------------------------------------------------------------
+function send_message(req, res)
+{
+	let message_destination = req.body.destination;
+	let user_reciever = get_user_by_email(message_destination);
+	const id_sender = get_id_from_token(req, res);
+
+	if(id_sender == null){
+		return;
+	}
+
+	if(email == null){
+		send_error_response(StatusCodes.BAD_REQUEST, "Incorrect destination email", res);
+		return;
+	}
+
+	const id_reciever = user_reciever.id;
+	
+	
+	
+
+
+	
+
+	
+
+
+
 }
 
 
@@ -449,11 +501,13 @@ router.get('/admin/users', (req, res) => { get_all_users_by_admin(req, res) })
 router.put('/admin/users/(:id)', (req, res) => { update_user_status_by_admin(req, res) })
 router.post('/admin/message', (req, res) => { send_broadcast_message_by_admin(req, res) })
 router.delete('/admin/user/(:id)/posts/(:post_id)', (req, res) => { delete_a_post_by_admin(req, res) })
+router.put('/users/logout', (req, res) => { delete_a_post_by_admin(req, res) })
 app.use('/api',router)
 
 // Init 
 
 //init_server();
+get_post_nubmer();
 get_num_of_files();
 let msg = `${package.description} listening at port ${port}`
 app.listen(port, () => { console.log( msg ) ; })
