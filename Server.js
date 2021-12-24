@@ -6,6 +6,12 @@ const crypto = require('crypto');
 const fs = require("fs").promises;
 
 
+const status_created = "created"
+const status_active = "active";
+const status_suspended = "suspended"
+const status_deleted = "deleted";
+
+
 const app = express()
 let  port = 2718;
 const user_id_map = new Map();//Map(email=> ID)
@@ -39,11 +45,16 @@ const User = function(email, password, full_name){
 	this.email_address = email;
 	this.name = full_name;
 	this.id = user_id++;
-	this.status = "created";
+	this.status = status_created;
 	this.creation_date = get_date_and_time(); 
 	this.salt = crypto.randomBytes(16).toString('hex');
 	this.hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, `sha512`).toString(`hex`);
 }
+
+const compare_user = function(user1, user2){
+	return user2.id - user1.id
+}
+
 //------------------------------------------------------------------------------------------------
 
 const Post = function(message, sender_id, email){
@@ -52,6 +63,10 @@ const Post = function(message, sender_id, email){
 	this.message = message;
 	this.creation_date = get_date_and_time(); 
 	this.post_id = post_id++;
+}
+
+const compare_post = function(post1, post2){
+	return post2.post_id - post1.post_id
 }
 //------------------------------------------------------------------------------------------------
 
@@ -63,6 +78,11 @@ const Message = function(message, sender, receiver, type_message){
 	this.type_message = type_message;
 	this.message_id = message_id++;
 }
+
+const compare_message = function(message1, message2){
+	return message2.message_id - message1.message_id
+}
+
 //------------------------------------------------------------------------------------------------
 
 function get_date_and_time(){
@@ -78,15 +98,26 @@ const admin = new User("admin@gmail.com", "1234", "Admin The Admin");
 // API functions
 
 //------------------------------------------------------------------------------------------------
-async function register( req, res )
-{
+async function register( req, res ){
+
+	let params = new Map();
+	params.set("name", req.body.name);
+	params.set("email", req.body.email);
+	params.set("password", req.body.password);
+	if(!check_request_params(params, res)){
+		return;
+	}
+
+
 	const full_name = req.body.name;
 	const email = req.body.email;
 	const password = req.body.password;
+	
 
-	if ( !is_valid_request( full_name, email, password, res)){
-		return;
-	}
+
+	// if ( !is_valid_request( full_name, email, password, res)){
+	// 	return;
+	// }
 
 	if(await check_if_email_exist(email)){
 		send_error_response(StatusCodes.BAD_REQUEST, "Email is already exist", res);
@@ -95,12 +126,6 @@ async function register( req, res )
 
 	const new_user = new User(email, password, full_name);
 
-	//User Should not beable to do stuff after registering
-
-	// if(!set_token(res, user_data)){
-	// 	send_error_response(StatusCodes.UNAUTHORIZED, "The user is already logged in", res);
-	// 	return;
-	// }
 	user_id_map.set(new_user.email_address, new_user.id);
 
 
@@ -110,8 +135,17 @@ async function register( req, res )
 }
 //------------------------------------------------------------------------------------------------
 async function login(req, res){
+
+	let params = new Map();
+	params.set("email", req.body.email);
+	params.set("password", req.body.password);
+	if(!check_request_params(params, res)){
+		return;
+	}
+
 	let email = req.body.email;
 	let password = req.body.password;
+
 
 	let user_data = await get_user_by_email(email);
 	if( user_data == null){
@@ -122,18 +156,32 @@ async function login(req, res){
 		send_error_response(StatusCodes.BAD_REQUEST, "Password is incorrect", res);
 		return;
 	}
-	if(user_data.status != "active"){
-		send_error_response(StatusCodes.UNAUTHORIZED, "You should wait until the Admin will approve you", res);
+	if(!check_user_status(user_data, res)){
 		return;
 	}
-
 	if(!set_token(res, user_data)){
 		send_error_response(StatusCodes.UNAUTHORIZED, "The user is already logged in", res);
 		return;
 	}
 	res.send("Logged in successfully");
 }
+//------------------------------------------------------------------------------------------------
 
+function check_user_status(user_data, res){
+	switch(user_data.status){
+		case status_created:
+			send_error_response(StatusCodes.UNAUTHORIZED, "You should wait until the Admin will approve you", res);
+			return false;
+		case status_suspended:
+			send_error_response(StatusCodes.UNAUTHORIZED, "This account is suspended", res);
+			return false;
+		case status_deleted:
+			send_error_response(StatusCodes.UNAUTHORIZED, "This account was deleted", res);
+			return false;
+		default:
+			return true;
+	}
+}
 //------------------------------------------------------------------------------------------------
 
 function set_token(res, new_user){
@@ -190,7 +238,6 @@ async function get_user_by_email(email)
 	}
 	return null;
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function get_user_by_id(id){
@@ -200,8 +247,6 @@ async function get_user_by_id(id){
 	let json_data = await read_file('./users/' + id + user_details_file);
 	return await JSON.parse(json_data);
 }
-
-
 //------------------------------------------------------------------------------------------------
 
 function send_error_response (status_code, message, res){
@@ -230,7 +275,6 @@ async function get_all_mails(){
 		}
 	}
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function get_all_users(){
@@ -244,7 +288,6 @@ async function get_all_users(){
 	}
 	return arr_users;
 }
-
 //------------------------------------------------------------------------------------------------
 async function exists( path )
 {
@@ -252,12 +295,13 @@ async function exists( path )
         const stat = await fs.stat( path )
         return true;
     }
-    catch( e )
+    catch(e)
     {
         return false;
     }    
 }
 //------------------------------------------------------------------------------------------------
+
 async function count_num_of_users()
 {
 	if(!(await exists('./users'))){
@@ -271,77 +315,58 @@ async function count_num_of_users()
 	await get_all_mails();
 	console.log("get Num of Files==> num of files=%d", user_id);
 }
-//------------------------------------------------------------------------------------------------
 
-function is_valid_request ( full_name, email, password, res )
-{
-	let is_valid = true;
-	if ( !full_name )
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Missing name in request");
-		is_valid = false;
-	}
-	else if ( !email )
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Missing email in request");
-		is_valid = false;
-	}
-	else if( !password )
-	{
-		res.status( StatusCodes.BAD_REQUEST );
-		res.send( "Missing password in request");
-		is_valid = false;
-	}
-
-	return is_valid;
-}
 //------------------------------------------------------------------------------------------------
 
 async function posting_new_post(req, res){
-	
-	const text = req.body.text;
-	console.log("IN POST NEW POST==> text", text);
-
-	let id = get_id_from_token(req, res);
+	const id = get_id_from_token(req, res);
 	if(id == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return;
 	}
+
+	let params = new Map();
+	params.set("text", req.body.text);
+	if(!check_request_params(params, res)){
+		return;
+	}
+
+	const text = req.body.text;
 	let user = await get_user_by_id(id)
 	let post = new Post(text, id, user.email_address);
-	//let post_json = JSON.stringify(post);
 	await add_post_to_file(post);
-	//await write_data_to_file(","+post_json + "\n", "./posts", "a");
 	res.send("Your Post with id: " + post.post_id+ " was created");
 }
 //------------------------------------------------------------------------------------------------
+
 async function add_post_to_file(new_post){
 	let all_posts = await get_arr_from_file(posts_path);
 	console.log("ADD_NEW_POST===>", new_post);
 	all_posts.push(new_post);
 	await write_data_to_file(all_posts, posts_path);
 }
-
 //------------------------------------------------------------------------------------------------
+
 function get_id_from_token(req, res)
 {
 	const token = req.get("Token");
 	if(!tokens_map.has(token)){
-		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return null;
 	}
 	const id = parseInt(tokens_map.get(token));
 	return id;
 }
 //------------------------------------------------------------------------------------------------
+
 async function get_all_posts(req, res){
 	const id = get_id_from_token(req, res);
-
+	if(id == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
+		return;
+	}
 	let arr_posts = await get_arr_from_file(posts_path);
-	//	res.send(await JSON.stringify(arr_posts));
-
-	res.send(await JSON.stringify(arr_posts, ['email', 'message', 'creation_date']));
+	arr_posts.sort(compare_post);
+	res.send(await JSON.stringify(arr_posts, ['email', 'message', 'creation_date', 'post_id']));
 }
 //------------------------------------------------------------------------------------------------
 
@@ -354,26 +379,33 @@ async function get_arr_from_file(path)
 	arr_json = JSON.parse(arr);
 	return arr_json;
 }
-
 //------------------------------------------------------------------------------------------------
+
 async function write_data_to_file(data ,path, mode)
 {
 	await fs.writeFile(path, JSON.stringify(data), {flag:mode});
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post(req, res)
 {
-	let post_to_delete = parseInt(req.body.id);
 	let curr_user_id = (get_id_from_token(req, res));
 	if(curr_user_id == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return;
 	}
+
+	let params = new Map();
+	params.set("id", req.body.id);
+	if(!check_request_params(params, res)){
+		return;
+	}
+	let post_to_delete = parseInt(req.body.id);
+
 	if(! (await remove_post(post_to_delete, curr_user_id, res)) ){
 		return;
 	}
-	res.send("Post with id: " + post_to_delete + "was deleted successfully");
+	res.send("Post with id: " + post_to_delete + " was deleted successfully");
 }
 //------------------------------------------------------------------------------------------------
 
@@ -426,27 +458,25 @@ async function count_num_of_posts()
 //------------------------------------------------------------------------------------------------
 async function send_message(req, res)
 {
+	const id_sender = get_id_from_token(req, res);
+	if(id_sender == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
+		return;
+	}
+
+	
+	let params = new Map();
+	params.set("destination", req.body.destination);
+	params.set("text", req.body.text);
+	if(!check_request_params(params, res)){
+		return;
+	}
+	
 	let message_destination = req.body.destination;
-	if(message_destination == null){
-		send_error_response(StatusCodes.BAD_REQUEST, "Incorrect destination email", res);
-		return;
-	}
 	let body = req.body.text;
-	if(body == null){
-		send_error_response(StatusCodes.BAD_REQUEST, "no body text", res);
-		return;
-	}
-
-
 	let user_reciever = await get_user_by_email(message_destination);
 	if(user_reciever == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "There is no email " + message_destination + " in the system", res);
-		return;
-	}
-
-	const id_sender = get_id_from_token(req, res);
-	if(id_sender == null){
-		send_error_response(StatusCodes.UNAUTHORIZED, "Invalid user", res);
 		return;
 	}
 	let user_sender = await get_user_by_id(id_sender);
@@ -461,12 +491,13 @@ async function send_message(req, res)
 async function get_all_messages(req, res)
 {
 	const id = get_id_from_token(req, res);
-
 	if(id == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return;
 	}
 
 	let arr = await get_arr_from_file('./users/' + id + messages_file);
+	arr.sort(compare_message);
 	//res.send(JSON.stringify(arr));
 	res.send(JSON.stringify(arr,['type_message','sender', 'receiver', 'message', 'creation_date']));
 
@@ -476,12 +507,13 @@ async function get_all_messages(req, res)
 
 async function get_all_users_by_admin(req, res)
 {
-
-
+	if(!check_if_admin(req,res)){
+		return;
+	}
 	const users_arr = await get_all_users();
-	res.send(JSON.stringify(users_arr));
+	users_arr.sort(compare_user);
+	res.send(JSON.stringify(users_arr,['id','email_address', 'creation_date','status']));
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function update_user_status_by_admin(req, res)
@@ -489,15 +521,23 @@ async function update_user_status_by_admin(req, res)
 	if(!check_if_admin(req,res)){
 		return;
 	}
+
+	let params = new Map();
+	params.set("id", req.body.id);
+	params.set("status", req.body.status);
+	if(!check_request_params(params, res)){
+		return;
+	}
+	
 	let id = parseInt(req.body.id);
+	const status = req.body.status;
 	let user = await get_user_by_id(id);
 	if(user == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "Invaild id number", res);
 		return;
 	}
-	const status = req.body.status;
-	if(check_if_valid_status(status, res))
-	{
+
+	if(check_if_valid_status(status, res)){
 		user.status = status;
 		await write_data_to_file(user, './users/' + id + user_details_file);
 	}
@@ -507,7 +547,6 @@ async function update_user_status_by_admin(req, res)
 
 	res.send("Status changed successfully");
 }
-
 //------------------------------------------------------------------------------------------------
 
 function check_if_valid_status(status, res)
@@ -524,7 +563,6 @@ function check_if_valid_status(status, res)
 	
 	return true;
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function send_broadcast_message_by_admin(req, res)
@@ -532,11 +570,14 @@ async function send_broadcast_message_by_admin(req, res)
 	if(!check_if_admin(req, res)){
 		return;
 	}
-	let body = req.body.text;
-	if(body == null){
-		send_error_response(StatusCodes.BAD_REQUEST, "no body text", res);
+	
+	let params = new Map();
+	params.set("text", req.body.text);
+	if(!check_request_params(params, res)){
 		return;
 	}
+	
+	let body = req.body.text;
 
 	let users_arr = await get_all_users();
 	let message = new Message(body, "Admin", "everybody", "sent" );
@@ -548,11 +589,12 @@ async function send_broadcast_message_by_admin(req, res)
 
 	res.send("Successfully boardcast a message!");
 }
-
 //------------------------------------------------------------------------------------------------
+
 function check_if_admin(req, res){
 	const id = get_id_from_token(req, res);
 	if( id == null){
+		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return false;
 	}
 	if(id != 0 ){
@@ -561,7 +603,6 @@ function check_if_admin(req, res){
 	}
 	return true;
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function create_message(id, message, message_type)
@@ -571,22 +612,25 @@ async function create_message(id, message, message_type)
 	messages_arr.push(message);
 	await write_data_to_file(messages_arr, "./users/" + id+ messages_file);
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post_by_admin(req, res)
 {
-	let id_of_post = req.body.post_id;
-	if(id_of_post == null){
-		send_error_response(StatusCodes.BAD_REQUEST, "There is no post id");
-	}
 	if( !check_if_admin(req, res)){
 		return;
 	}
+
+	let params = new Map();
+	params.set("post_id", req.body.post_id);
+	if(!check_request_params(params, res)){
+		return;
+	}
+	
+	let id_of_post = req.body.post_id;
 	if(!remove_post(id_of_post, 0, res)){
 		return;
 	}
-	res.send("The post number" + id_of_post + "deleted successfully!!");
+	res.send("The post number " + id_of_post + " deleted successfully!!");
 }
 
 //------------------------------------------------------------------------------------------------
@@ -594,9 +638,11 @@ async function delete_a_post_by_admin(req, res)
 function logout(req, res)
 {
 	const token = req.get("Token");
-	if(!tokens_map.has(token)){
+	if(token == null || !tokens_map.has(token)){
 		send_error_response(StatusCodes.BAD_REQUEST, "Undefined token", res);
+		return;
 	}
+
 	tokens_map.delete(token);
 	res.send("Logout successfully");
 }
@@ -610,8 +656,8 @@ async function init_admin(){
 	if(! (await exists("./users/0"))){
 		await write_user_data_to_file(admin);
 	}
-
 }
+//------------------------------------------------------------------------------------------------
 
 async function cout_num_of_messages(){	
 	for(let i =0; i < user_id; ++i){
@@ -625,9 +671,24 @@ async function cout_num_of_messages(){
 			}
 		}
 	}
-	//console.log("GET NUM OF MESSAGES==>", message_id);
+}
+//------------------------------------------------------------------------------------------------
+
+function check_request_params(params, res){
+	let res_message = ""
+	for(let [field_name, value] of params){
+		if(value == null){
+			res_message += "Missing " + field_name + " field in request body \n"
+		}
+	}
+	if(res_message != ""){
+		send_error_response(StatusCodes.BAD_REQUEST, res_message, res);
+		return false;
+	}
+	return true;
 }
 
+//------------------------------------------------------------------------------------------------
 
 async function init_server(){
 	
@@ -640,7 +701,6 @@ async function init_server(){
 // Routing
 
 const router = express.Router();
-
 router.post('/users/login', (req, res) => { login(req, res) })
 router.post('/users/register', (req, res) => { register(req, res) })
 router.put('/users/post', (req, res) => { posting_new_post(req, res) })
@@ -653,9 +713,7 @@ router.put('/admin/users', (req, res) => { update_user_status_by_admin(req, res)
 router.post('/admin/message', (req, res) => { send_broadcast_message_by_admin(req, res) })
 router.delete('/admin/posts', (req, res) => { delete_a_post_by_admin(req, res) })
 router.put('/users/logout', (req, res) => { logout(req, res) })
-app.use('/api',router)
-
-//TODO: ADD A STATUS VALIDATION OF THE USER BEFORE EVERY ACTION
+app.use('/social_network',router)
 
 // Init 
 
