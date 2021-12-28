@@ -10,15 +10,17 @@ const status_created = "created"
 const status_active = "active";
 const status_suspended = "suspended"
 const status_deleted = "deleted";
+const ten_minutes = 60000;
 
 
 const app = express()
 let  port = 2718;
-const user_id_map = new Map();//Map(email=> ID)
 let user_id = 0;
 let post_id = 0;
 let message_id = 0;
-const tokens_map = new Map(); //Map(token=> ID)
+
+const user_id_map = new Map();//Map(email=> ID)
+const tokens_map = new Map(); //Map(token=> ID, time)
 
 const messages_file = "/messages.json"
 const user_details_file = "/user_details.json"
@@ -38,6 +40,12 @@ app.use(express.urlencoded( // to support URL-encoded bodies
 {  
   extended: true
 }));
+
+//------------------------------------------------------------------------------------------------
+const token_map_value = function(id, start_time){
+	this.id = id;
+	this.start_time = start_time;
+}
 
 //------------------------------------------------------------------------------------------------
 //User constructor 
@@ -186,7 +194,9 @@ function set_token(res, new_user){
 		return false;
 	}
 	const token = crypto.randomBytes(7).toString("hex");
-	tokens_map.set(token,new_user.id);
+	const curr_time = Date.now();
+	const new_token_value = new token_map_value(new_user.id, curr_time);
+	tokens_map.set(token, new_token_value);
 	res.setHeader("Token",token);
 	return true;
 }
@@ -350,7 +360,15 @@ function get_id_from_token(req, res)
 	if(!tokens_map.has(token)){
 		return null;
 	}
-	const id = parseInt(tokens_map.get(token));
+	const token_value = tokens_map.get(token);
+	//id, time
+	const time = token_value.start_time;
+	if(Date.now() - time > ten_minutes){
+		tokens_map.delete(toekn);
+		return null;
+	}
+
+	const id = parseInt(token_value.id);
 	return id;
 }
 //------------------------------------------------------------------------------------------------
@@ -478,11 +496,10 @@ async function send_message(req, res)
 	const user_sender = await get_user_by_id(id_sender);
 	const message = new Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent");
 	await create_message(user_sender.id, message, "sent");
-	await create_message(user_reciever.id, message, "recieved");
+	await create_message(user_reciever.id, message, "received");
 	res.send("Mail sent seccessfully!");
 }
 //------------------------------------------------------------------------------------------------
-
 async function get_all_messages(req, res)
 {
 	const id = get_id_from_token(req, res);
@@ -501,9 +518,6 @@ async function send_all_users(req, res)
 {
 	const users_arr = await get_all_users();
 	users_arr.sort(compare_user);
-	// if(!check_if_admin(req,res)){
-	// 	return;
-	// }
 	const id = get_id_from_token(req, res)
 	if(id == null){
 		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
@@ -580,15 +594,15 @@ async function send_broadcast_message_by_admin(req, res)
 	
 	let body = req.body.text;
 
-	let users_arr = await send_all_users();
+	let users_arr = await get_all_users();
 	let message = new Message(body, "Admin", "everybody", "sent" );
 	await create_message(0, message, "sent");
 	for( let i= 0; i< users_arr.length; i++){
-		message = new Message(body, "Admin", users_arr[i].email_address, "recieved" );
+		message = new Message(body, "Admin", users_arr[i].email_address, "received" );
 		 await create_message(users_arr[i].id, message, "received");
 	}
 
-	res.send("Successfully boardcast a message!");
+	res.send("Successfully broadcast a message!");
 }
 //------------------------------------------------------------------------------------------------
 
@@ -635,7 +649,6 @@ async function delete_a_post_by_admin(req, res)
 }
 
 //------------------------------------------------------------------------------------------------
-
 function logout(req, res)
 {
 	const token = req.get("Token");
@@ -647,7 +660,6 @@ function logout(req, res)
 	tokens_map.delete(token);
 	res.send("Logout successfully");
 }
-
 
 //------------------------------------------------------------------------------------------------
 
@@ -688,7 +700,6 @@ function check_request_params(params, res){
 	}
 	return true;
 }
-
 //------------------------------------------------------------------------------------------------
 
 async function init_server(){
