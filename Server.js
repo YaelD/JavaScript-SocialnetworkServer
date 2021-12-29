@@ -3,7 +3,8 @@ const express = require('express')
 const StatusCodes = require('http-status-codes').StatusCodes;
 const package = require('./package.json');
 const crypto = require('crypto');
-const fs = require("fs").promises;
+//const fs = require("fs").promises;
+const file_handling = require("./file_handling.js");
 
 
 const status_created = "created"
@@ -21,10 +22,6 @@ let message_id = 0;
 
 const user_id_map = new Map();//Map(email=> ID)
 const tokens_map = new Map(); //Map(token=> ID, time)
-
-const messages_file = "/messages.json"
-const user_details_file = "/user_details.json"
-const posts_path = "./Wall.json";
 
 //------------------------------------------------------------------------------------------------
 // General app settings
@@ -134,7 +131,7 @@ async function register( req, res ){
 	user_id_map.set(new_user.email_address, new_user.id);
 
 
-	await write_user_data_to_file(new_user);
+	await file_handling.write_user_data_to_file(new_user);
 
 	res.send(JSON.stringify(new_user, ['name', 'email', 'id', 'status', 'creation_date']));    
 }
@@ -217,14 +214,7 @@ function check_password(password, user_data){
 	let hash = crypto.pbkdf2Sync(password, user_data.salt.toString(), 1000, 64, `sha512`).toString(`hex`);
 	return (hash == user_data.hash.toString());
 }
-//------------------------------------------------------------------------------------------------
 
-async function write_user_data_to_file( new_user)
-{ 	
-	let path_dir = "./users/" + new_user.id
-	await fs.mkdir(path_dir);
-	await fs.writeFile( path_dir + user_details_file, JSON.stringify(new_user) );
-}
 //------------------------------------------------------------------------------------------------
 
 async function check_if_email_exist(email)
@@ -240,7 +230,7 @@ async function get_user_by_email(email)
 {
 	if(user_id_map.has(email)){
 		let id = user_id_map.get(email);
-		let json_data = await read_file('./users/' + id + user_details_file);
+		let json_data = await file_handling.read_file('./users/' + id + file_handling.user_details_file);
 		return JSON.parse(json_data);
 	}
 	return null;
@@ -248,10 +238,10 @@ async function get_user_by_email(email)
 //------------------------------------------------------------------------------------------------
 
 async function get_user_by_id(id){
-	if(! await(exists('./users/' + id + user_details_file))){
+	if(! await(file_handling.exists('./users/' + id + file_handling.user_details_file))){
 		return null;
 	}
-	let json_data = await read_file('./users/' + id + user_details_file);
+	let json_data = await file_handling.read_file('./users/' + id + file_handling.user_details_file);
 	return await JSON.parse(json_data);
 }
 //------------------------------------------------------------------------------------------------
@@ -260,22 +250,12 @@ function send_error_response (status_code, message, res){
 	res.status( status_code );
 	res.send( message );
 }
+
 //------------------------------------------------------------------------------------------------
 
-async function read_file(path){
-	try{
-		const content = await fs.readFile(path);
-		return content.toString();
-	}
-	catch (e){
-		return null;
-	}
-}
-//------------------------------------------------------------------------------------------------
-
-async function get_all_mails(){
+async function get_all_users_in_file(){
 	for(let i = 1; i < user_id; ++i){
-		let content = await read_file('./users/' + i + user_details_file);
+		let content = await file_handling.read_file('./users/' + i + file_handling.user_details_file);
 		if(content!= null){
 			user_data = JSON.parse(content);
 			user_id_map.set(user_data.email_address, user_data.id);
@@ -287,7 +267,7 @@ async function get_all_mails(){
 async function get_all_users(){
 	const arr_users = [];
 	for(let i = 1; i < user_id; ++i){
-		let content = await read_file('./users/' + i + user_details_file);
+		let content = await file_handling.read_file('./users/' + i + file_handling.user_details_file);
 		if(content!= null){
 			user_data = JSON.parse(content);
 			arr_users.push(user_data);
@@ -295,32 +275,20 @@ async function get_all_users(){
 	}
 	return arr_users;
 }
-//------------------------------------------------------------------------------------------------
-async function exists( path )
-{
-    try {
-        const stat = await fs.stat( path )
-        return true;
-    }
-    catch(e)
-    {
-        return false;
-    }    
-}
+
 //------------------------------------------------------------------------------------------------
 
 async function count_num_of_users()
 {
-	if(!(await exists('./users'))){
+	if(!(await file_handling.exists('./users'))){
 		user_id = 1;
 		await fs.mkdir('./users');
 	}
 	else{
-		user_id = (await fs.readdir( './users')).length;
+		user_id = (await file_handling.fs.readdir( './users')).length;
 	}
 
-	await get_all_mails();
-	console.log("get Num of Files==> num of files=%d", user_id);
+	await get_all_users_in_file();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -341,16 +309,8 @@ async function posting_new_post(req, res){
 	const text = req.body.text;
 	let user = await get_user_by_id(id)
 	let post = new Post(text, id, user.email_address);
-	await add_post_to_file(post);
+	await file_handling.add_to_arr_file(post, file_handling.posts_path);
 	res.send("Your Post with id: " + post.post_id+ " was created");
-}
-//------------------------------------------------------------------------------------------------
-
-async function add_post_to_file(new_post){
-	let all_posts = await get_arr_from_file(posts_path);
-	console.log("ADD_NEW_POST===>", new_post);
-	all_posts.push(new_post);
-	await write_data_to_file(all_posts, posts_path);
 }
 //------------------------------------------------------------------------------------------------
 
@@ -361,10 +321,9 @@ function get_id_from_token(req, res)
 		return null;
 	}
 	const token_value = tokens_map.get(token);
-	//id, time
 	const time = token_value.start_time;
 	if(Date.now() - time > ten_minutes){
-		tokens_map.delete(toekn);
+		tokens_map.delete(token);
 		return null;
 	}
 
@@ -379,26 +338,9 @@ async function get_all_posts(req, res){
 		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return;
 	}
-	let arr_posts = await get_arr_from_file(posts_path);
+	let arr_posts = await file_handling.get_arr_from_file(file_handling.posts_path);
 	arr_posts.sort(compare_post);
 	res.send(await JSON.stringify(arr_posts, ['email', 'message', 'creation_date', 'post_id']));
-}
-//------------------------------------------------------------------------------------------------
-
-async function get_arr_from_file(path)
-{
-	if(!(await exists(path))){
-		await fs.writeFile(path, JSON.stringify([]));
-	}
-	let arr = await read_file(path);
-	arr_json = JSON.parse(arr);
-	return arr_json;
-}
-//------------------------------------------------------------------------------------------------
-
-async function write_data_to_file(data ,path, mode)
-{
-	await fs.writeFile(path, JSON.stringify(data), {flag:mode});
 }
 //------------------------------------------------------------------------------------------------
 
@@ -426,7 +368,7 @@ async function delete_a_post(req, res)
 
 async function remove_post(post_to_delete, curr_user_id, res)
 {
-	let post_arr = await get_arr_from_file(posts_path); 	
+	let post_arr = await file_handling.get_arr_from_file(file_handling.posts_path); 	
 	const index_to_delete = find_post_to_delete(post_arr, post_to_delete, curr_user_id);
 
 	if(post_arr.length == 0){
@@ -439,7 +381,7 @@ async function remove_post(post_to_delete, curr_user_id, res)
 	}
 	
 	post_arr.splice(index_to_delete, 1);
-	write_data_to_file(post_arr, posts_path);
+	file_handling.write_data_to_file(post_arr, file_handling.posts_path);
 	return true;
 }
 //------------------------------------------------------------------------------------------------
@@ -459,9 +401,8 @@ function find_post_to_delete(post_arr, post_to_delete, id)
 }
 //------------------------------------------------------------------------------------------------
 
-async function count_num_of_posts()
-{
-	const arr_posts = await get_arr_from_file(posts_path);
+async function count_num_of_posts(){
+	const arr_posts = await file_handling.get_arr_from_file(file_handling.posts_path);
 	if(arr_posts.length == 0){
 		post_id = 0;
 	}
@@ -471,8 +412,7 @@ async function count_num_of_posts()
 	}
 }
 //------------------------------------------------------------------------------------------------
-async function send_message(req, res)
-{
+async function send_message(req, res){
 	const id_sender = get_id_from_token(req, res);
 	if(id_sender == null){
 		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
@@ -494,20 +434,21 @@ async function send_message(req, res)
 		return;
 	}
 	const user_sender = await get_user_by_id(id_sender);
-	const message = new Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent");
-	await create_message(user_sender.id, message, "sent");
-	await create_message(user_reciever.id, message, "received");
+	const message_to_sender = new Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent");
+	const message_to_reciever = new Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "received");
+	
+	await create_message(user_sender.id, message_to_sender);
+	await create_message(user_reciever.id, message_to_reciever);
 	res.send("Mail sent seccessfully!");
 }
 //------------------------------------------------------------------------------------------------
-async function get_all_messages(req, res)
-{
+async function get_all_messages(req, res){
 	const id = get_id_from_token(req, res);
 	if(id == null){
 		send_error_response(StatusCodes.UNAUTHORIZED, "Undefined user", res);
 		return;
 	}
-	let arr = await get_arr_from_file('./users/' + id + messages_file);
+	let arr = await file_handling.get_arr_from_file('./users/' + id + file_handling.messages_file);
 	arr.sort(compare_message);
 	res.send(JSON.stringify(arr,['type_message','sender_name','sender_id', 'recipient_name' ,'recipient_id', 'message', 'creation_date']));
 }
@@ -555,17 +496,15 @@ async function update_user_status_by_admin(req, res)
 		send_error_response(StatusCodes.BAD_REQUEST, "This user was deleted, and cannot change it's status", res);
 		return;
 	}
-
 	if(check_if_valid_status(status, res)){
 		user.status = status;
-		await write_data_to_file(user, './users/' + id + user_details_file);
+		await file_handling.write_data_to_file(user, './users/' + id + file_handling.user_details_file);
 		res.send("Status changed successfully");
 	}
 }
 //------------------------------------------------------------------------------------------------
 
-function check_if_valid_status(status, res)
-{
+function check_if_valid_status(status, res){
 	if(status == null){
 		send_error_response(StatusCodes.BAD_REQUEST, "There is no status", res);
 		return null;
@@ -598,7 +537,7 @@ async function send_broadcast_message_by_admin(req, res)
 	let message = new Message(body, "Admin", "everybody", "sent" );
 	await create_message(0, message, "sent");
 	for( let i= 0; i< users_arr.length; i++){
-		message = new Message(body, "Admin", users_arr[i].email_address, "received" );
+		message = new Message(body, 0, admin.name ,users_arr[i].id,users_arr[i].name, "received" );
 		 await create_message(users_arr[i].id, message, "received");
 	}
 
@@ -622,10 +561,9 @@ function check_if_admin(req, res){
 
 async function create_message(id, message, message_type)
 {
-	message.type_message = message_type;
-	let messages_arr = await get_arr_from_file("./users/" + id + messages_file);
-	messages_arr.push(message);
-	await write_data_to_file(messages_arr, "./users/" + id+ messages_file);
+	//message.type_message = message_type;
+	//console.log("CREATE MESSAGE==> about to add", message);
+	file_handling.add_to_arr_file(message, "./users/" + id + file_handling.messages_file);
 }
 //------------------------------------------------------------------------------------------------
 
@@ -666,16 +604,16 @@ function logout(req, res)
 async function init_admin(){
 	admin.status = "active";
 	user_id_map.set(admin.email_address, admin.id);
-	if(! (await exists("./users/0"))){
-		await write_user_data_to_file(admin);
+	if(! (await file_handling.exists("./users/0"))){
+		await file_handling.write_user_data_to_file(admin);
 	}
 }
 //------------------------------------------------------------------------------------------------
 
 async function cout_num_of_messages(){	
 	for(let i =0; i < user_id; ++i){
-		if(await exists('./users/' + i + messages_file)){
-			let messages_arr = await get_arr_from_file('./users/' + i + messages_file);
+		if(await file_handling.exists('./users/' + i + file_handling.messages_file)){
+			let messages_arr = await file_handling.get_arr_from_file('./users/' + i + file_handling.messages_file);
 			for(let j = 0; j < messages_arr.length; ++j){
 				let curr_message = (messages_arr[j]);
 				if(message_id <= curr_message.message_id){
