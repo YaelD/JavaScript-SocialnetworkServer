@@ -190,11 +190,14 @@ function set_token(res, new_user){
 	if(check_if_user_logged_in(new_user.id)){
 		return false;
 	}
-	const token = crypto.randomBytes(7).toString("hex");
+	const curr_token = crypto.randomBytes(7).toString("hex");
 	const curr_time = Date.now();
 	const new_token_value = new token_map_value(new_user.id, curr_time);
-	tokens_map.set(token, new_token_value);
-	res.setHeader("Token",token);
+	tokens_map.set(curr_token, new_token_value);
+	token_json = JSON.stringify({
+		token: curr_token
+	})
+	res.setHeader("Authorization",token_json);
 	return true;
 }
 //------------------------------------------------------------------------------------------------
@@ -282,7 +285,7 @@ async function count_num_of_users()
 {
 	if(!(await file_handling.exists('./users'))){
 		user_id = 1;
-		await fs.mkdir('./users');
+		await file_handling.fs.mkdir('./users');
 	}
 	else{
 		user_id = (await file_handling.fs.readdir( './users')).length;
@@ -316,7 +319,7 @@ async function posting_new_post(req, res){
 
 function get_id_from_token(req, res)
 {
-	const token = req.get("Token");
+	const token = req.get("Authorization");
 	if(!tokens_map.has(token)){
 		return null;
 	}
