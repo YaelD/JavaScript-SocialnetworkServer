@@ -1,8 +1,6 @@
-
 const fs = require("fs").promises;
-
-const messages_file = "/messages.json"
 const user_details_file = "/user_details.json"
+const messages_file = "/messages.json"
 const posts_path = "./Wall.json";
 
 async function read_file(path){
@@ -49,14 +47,6 @@ async function add_to_arr_file(new_value, path){
 	await write_data_to_file(arr, path);
 }
 
-async function write_user_data_to_file( new_user)
-{ 	
-	let path_dir = "./users/" + new_user.id
-	await fs.mkdir(path_dir);
-	await fs.writeFile( path_dir + user_details_file, JSON.stringify(new_user) );
-}
-
-
 
 
 module.exports = {
@@ -65,9 +55,8 @@ module.exports = {
     add_to_arr_file : add_to_arr_file,
 	exists : exists,
 	read_file : read_file,
-	write_user_data_to_file : write_user_data_to_file,
-	posts_path : posts_path,
-	messages_file : messages_file,
 	user_details_file : user_details_file,
-	fs : fs
+	fs : fs,
+	posts_path : posts_path,
+	messages_file : messages_file
 }
