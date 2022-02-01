@@ -42,7 +42,6 @@ async function write_data_to_file(data ,path, mode)
 
 async function add_to_arr_file(new_value, path){
 	let arr = await get_arr_from_file(path);
-	console.log("ADD_NEW_VALUE_TO_ARR===>", new_value);
 	arr.push(new_value);
 	await write_data_to_file(arr, path);
 }

@@ -4,8 +4,8 @@ const status_codes = require('http-status-codes').StatusCodes;
 const posts = require("./post.js");
 const messages = require("./message.js");
 const users = require("./user.js");
-//const { count_num_of_users } = require("./utilities.js");
-const user = require("./user.js");
+const { check_if_user_logged_in } = require("./utilities.js");
+
 
 let user_id_map = new Map();//Map(email=> ID)
 let tokens_map = new Map(); //Map(token=> ID, time)
@@ -85,7 +85,7 @@ async function login(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function posting_new_post(req, res){
-	const get_id_response = utilities.get_id_from_token(req.get("Authorization"),tokens_map);
+	const get_id_response = await utilities.get_id_from_token(req.get("Authorization"),tokens_map);
 	if(get_id_response.status != status_codes.OK){
 		send_error_response(get_id_response.status, get_id_response.message, res);
 		return;
@@ -107,7 +107,7 @@ async function posting_new_post(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post(req, res){
-	const is_valid_user = utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
@@ -132,13 +132,13 @@ async function delete_a_post(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function get_all_posts(req, res){
-	const id = utilities.get_id_from_token(req.get("Authorization"), tokens_map);
-	if(id == null){
-		send_error_response(status_codes.UNAUTHORIZED, "Undefined user", res);
+	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	if(is_valid_user.status != status_codes.OK){
+		send_error_response(is_valid_user.status,is_valid_user.message , res);
 		return;
 	}
 	let arr_posts = await file_handling.get_arr_from_file(file_handling.posts_path);
-	arr_posts.sort(posts.compare_post);
+	arr_posts.sort(posts.compare_posts);
 	if(arr_posts.length == 0){
 		send_error_response(status_codes.NOT_FOUND, "There are no Posts in the server", res);
 		return;
@@ -148,9 +148,9 @@ async function get_all_posts(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function send_message(req, res){
-	const is_valid_user = utilities.get_id_from_token(req.get("Authorization"), tokens_map);
-	if(is_valid_user == null){
-		send_error_response(status_codes.UNAUTHORIZED, "Undefined user", res);
+	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	if(is_valid_user.status != status_codes.OK){
+		send_error_response(is_valid_user.status,is_valid_user.message , res);
 		return;
 	}
 
@@ -173,18 +173,17 @@ async function send_message(req, res){
 		return;
 	}
 	const user_sender = await utilities.get_user_by_id(id_sender);
-	console.log("IN SENDING MESSAGE===> user_sender", user_sender);
 	const message_to_sender = new messages.Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent", message_id++);
 	const message_to_reciever = new messages.Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "received", message_id++);
 	
 	await utilities.create_message(user_sender.id, message_to_sender);
 	await utilities.create_message(user_reciever.id, message_to_reciever);
-	res.send("Mail sent seccessfully!");
+	res.send("Mail sent successfully!");
 }
 //------------------------------------------------------------------------------------------------
 
 async function get_all_messages(req, res){
-	const is_valid_user = utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
@@ -197,13 +196,13 @@ async function get_all_messages(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function send_all_users(req, res){
-	const is_valid_user = utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
 	}
 	const users_arr = await utilities.get_all_users(user_id);
-	users_arr.sort(users.compare_user);
+	users_arr.sort(users.compare_users);
 	const id = is_valid_user.message;
 	if(id == 0){
 		res.send(JSON.stringify(users_arr,['id','name','email_address', 'creation_date','status']));
@@ -217,7 +216,7 @@ async function send_all_users(req, res){
 
 async function update_user_status_by_admin(req, res)
 {
-	const is_admin = utilities.check_if_admin(req.get("Authorization"), tokens_map);
+	const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -247,6 +246,9 @@ async function update_user_status_by_admin(req, res)
 	let invalid_status_message = users.check_if_valid_status(status);
 	if(invalid_status_message == null){
 		user.status = status;
+		for(let v of tokens_map.values()){
+
+		}
 		await file_handling.write_data_to_file(user, './users/' + id + file_handling.user_details_file);
 		res.send("Status changed successfully");
 	}
@@ -257,7 +259,7 @@ async function update_user_status_by_admin(req, res)
 //------------------------------------------------------------------------------------------------
 
 async function send_broadcast_message_by_admin(req, res){
-	const is_admin = utilities.check_if_admin(req.get("Authorization"), tokens_map);
+	const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -277,13 +279,12 @@ async function send_broadcast_message_by_admin(req, res){
 		message = new messages.Message(body, admin.id, admin.name ,users_arr[i].id,users_arr[i].name, "received", message_id++);
 		 await utilities.create_message(users_arr[i].id, message, "received");
 	}
-
 	res.send("Successfully broadcast a message!");
 }
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post_by_admin(req, res){
-	const is_admin = utilities.check_if_admin(req.get("Authorization"),tokens_map);
+	const is_admin = await utilities.check_if_admin(req.get("Authorization"),tokens_map);
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -303,7 +304,7 @@ async function delete_a_post_by_admin(req, res){
 		return;
 	}
 	
-	res.send("The post number " + id_of_post + " deleted successfully!!");
+	res.send("Post number " + id_of_post + " deleted successfully!!");
 }
 //------------------------------------------------------------------------------------------------
 
@@ -325,9 +326,6 @@ function send_error_response (status_code, message, res){
 }
 //------------------------------------------------------------------------------------------------
 
-
-//------------------------------------------------------------------------------------------------
-
 async function init_admin(){
 	admin.status = "active";
 	user_id_map.set(admin.email_address, admin.id);
@@ -343,7 +341,6 @@ async function init_server(){
 	post_id = await utilities.count_num_of_posts();
 	await init_admin();
 	await utilities.build_users_map(user_id,user_id_map);
-	console.log("AFTER INITIATION===> num of users=%d, num of messages=%d, num of posts=%d", user_id, message_id, post_id);
 }
 //------------------------------------------------------------------------------------------------
 module.exports = {

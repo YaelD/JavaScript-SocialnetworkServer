@@ -4,6 +4,12 @@ const crypto = require('crypto');
 const utilities = require("./utilities.js");
 const status_codes = require('http-status-codes').StatusCodes;
 
+
+const status_created = "created"
+const status_active = "active";
+const status_suspended = "suspended"
+const status_deleted = "deleted";
+
 //User constructor 
 const User = function(email, password, full_name, user_id){
 	this.email_address = email;
@@ -14,15 +20,18 @@ const User = function(email, password, full_name, user_id){
 	this.salt = crypto.randomBytes(16).toString('hex');
 	this.hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, `sha512`).toString(`hex`);
 }
+//------------------------------------------------------------------------------------------------
 
-const compare_user = function(user1, user2){
+const compare_users = function(user1, user2){
 	return user2.id - user1.id
 }
+//------------------------------------------------------------------------------------------------
 
 function check_password(password, user_data){
 	let hash = crypto.pbkdf2Sync(password, user_data.salt.toString(), 1000, 64, `sha512`).toString(`hex`);
 	return (hash == user_data.hash.toString());
 }
+//------------------------------------------------------------------------------------------------
 
 User.prototype.write_user_data_to_file = async function()
 { 	
@@ -30,11 +39,7 @@ User.prototype.write_user_data_to_file = async function()
 	await file_handling.fs.mkdir(path_dir);
 	await file_handling.fs.writeFile( path_dir + file_handling.user_details_file, JSON.stringify(this) );
 }
-
-const status_created = "created"
-const status_active = "active";
-const status_suspended = "suspended"
-const status_deleted = "deleted";
+//------------------------------------------------------------------------------------------------
 
 function check_if_valid_status(status){
 	if(status == null){
@@ -45,8 +50,8 @@ function check_if_valid_status(status){
 	}
 	return null;
 }
-
 //------------------------------------------------------------------------------------------------
+
 function check_user_status(user_data){
 	let message = "";
 	let status = status_codes.OK;
@@ -65,13 +70,14 @@ function check_user_status(user_data){
 			break;
 		default:
 	}
-	return new utilities.validator_response(status, message);
+	return new utilities.UtilitiesResponse(status, message);
 }
+//------------------------------------------------------------------------------------------------
 
 module.exports = {
     User : User,
 	check_user_status : check_user_status,
-    compare_user : compare_user,
+    compare_users : compare_users,
     status_deleted : status_deleted,
     status_active : status_active,
     status_suspended : status_suspended,
