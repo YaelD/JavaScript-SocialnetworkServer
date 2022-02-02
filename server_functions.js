@@ -99,7 +99,7 @@ async function posting_new_post(req, res){
 	}
 	const text = req.body.text;
 	let user = await utilities.get_user_by_id(get_id_response.message)
-	let post = new posts.Post(text, user.id, user.email_address, post_id++);
+	let post = new posts.Post(text, user.id, user.name, post_id++);
 	await post.write_post_to_file();
 	//await file_handling.add_to_arr_file(post, file_handling.posts_path);
 	res.send("Your Post with id: " + post.post_id+ " was created");
@@ -143,7 +143,7 @@ async function get_all_posts(req, res){
 		send_error_response(status_codes.NOT_FOUND, "There are no Posts in the server", res);
 		return;
 	}
-	res.send(await JSON.stringify(arr_posts, ['creator_id', 'message', 'creation_date', 'post_id']));
+	res.send(await JSON.stringify(arr_posts, ['creator_name', 'message', 'creation_date', 'post_id']));
 }
 //------------------------------------------------------------------------------------------------
 

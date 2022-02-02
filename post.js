@@ -2,9 +2,9 @@ const file_handling = require("./file_handling.js");
 const utilities = require("./utilities")
 //------------------------------------------------------------------------------------------------
 
-const Post = function(message, sender_id, email, post_id){
+const Post = function(message, sender_id, name, post_id){
 	this.creator_id = sender_id;
-	this.email = email;
+	this.creator_name = name;
 	this.message = message;
 	this.creation_date = utilities.get_date_and_time(); 
 	this.post_id = post_id;
