@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 //------------------------------------------------------------------------------------------------
 
-const ten_minutes = 600000;
+const ten_minutes = 600000000;
 
 //------------------------------------------------------------------------------------------------
 
@@ -36,10 +36,10 @@ async function get_id_from_token(token, tokens_map)
 	}
 	const token_value = tokens_map.get(token);
 	const time = token_value.start_time;
-	// if(Date.now() - time > ten_minutes){
-	// 	tokens_map.delete(token);
-	// 	return new UtilitiesResponse(status_codes.BAD_REQUEST, "Logget out automaticlly due timeout")
-	// }
+	if(Date.now() - time > ten_minutes){
+		tokens_map.delete(token);
+		return new UtilitiesResponse(status_codes.BAD_REQUEST, "Logget out automaticlly due timeout")
+	}
 	const user = await get_user_by_id(token_value.id)
 	if(user.status != "active"){
 		return new UtilitiesResponse(status_codes.UNAUTHORIZED, "This account is " + user.status);
