@@ -174,10 +174,10 @@ async function send_message(req, res){
 		return;
 	}
 	const user_sender = await utilities.get_user_by_id(id_sender);
-	const message_to_sender = new messages.Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent", message_id++);
+	//const message_to_sender = new messages.Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "sent", message_id++);
 	const message_to_reciever = new messages.Message(body ,user_sender.id, user_sender.name,user_reciever.id, user_reciever.name , "received", message_id++);
 	
-	await utilities.create_message(user_sender.id, message_to_sender);
+	//await utilities.create_message(user_sender.id, message_to_sender);
 	await utilities.create_message(user_reciever.id, message_to_reciever);
 	res.send("Mail sent successfully!");
 }
@@ -192,6 +192,7 @@ async function get_all_messages(req, res){
 	const id = is_valid_user.message;
 	let arr = await file_handling.get_arr_from_file('./users/' + id + file_handling.messages_file);
 	arr.sort(messages.compare_message);
+	arr = arr.slice(0,10);
 	res.send(JSON.stringify(arr,['type_message','sender_name','sender_id', 'recipient_name' ,'recipient_id', 'message', 'creation_date','message_id']));
 }
 //------------------------------------------------------------------------------------------------
