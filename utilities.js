@@ -141,9 +141,9 @@ function check_if_user_logged_in(id, tokens_map){
 //------------------------------------------------------------------------------------------------
 
 function set_token(new_user, tokens_map){
-	if(check_if_user_logged_in(new_user.id, tokens_map)){
-		return new UtilitiesResponse(status_codes.BAD_REQUEST, "User is already logged in");
-	}
+	// if(check_if_user_logged_in(new_user.id, tokens_map)){
+	// 	return new UtilitiesResponse(status_codes.BAD_REQUEST, "User is already logged in");
+	// }
 	const curr_token = crypto.randomBytes(7).toString("hex");
 	const curr_time = Date.now();
 	const new_token_value = new token_map_value(new_user.id, curr_time);
