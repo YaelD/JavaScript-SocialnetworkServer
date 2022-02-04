@@ -23,6 +23,7 @@ const compare_posts = function(post1, post2){
 const build_posts_arr = function(post_arr, user_id){
 	let found = false;
 	let index;
+	let user_arr = post_arr;
 	for(let i=0; i < post_arr.length; ++i){
 		if(post_arr[i].creator_id == user_id){
 			found = true;
@@ -34,7 +35,9 @@ const build_posts_arr = function(post_arr, user_id){
 		let saver = post_arr[index];
 		post_arr.splice(index, 1);
 		post_arr.unshift(saver);
+		user_arr =  post_arr.slice(0,10);
 	}
+	return user_arr;
 }
 
 //------------------------------------------------------------------------------------------------

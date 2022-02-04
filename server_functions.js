@@ -143,7 +143,7 @@ async function get_all_posts(req, res){
 		send_error_response(status_codes.NOT_FOUND, "There are no Posts in the server", res);
 		return;
 	}
-	posts.build_posts_arr(arr_posts, is_valid_user.message);
+	arr_posts = posts.build_posts_arr(arr_posts, is_valid_user.message);
 	res.send(await JSON.stringify(arr_posts, ['creator_name', 'message', 'creation_date', 'post_id', 'creator_id']));
 }
 //------------------------------------------------------------------------------------------------
