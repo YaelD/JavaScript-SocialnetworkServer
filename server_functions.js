@@ -79,7 +79,8 @@ async function login(req, res){
 	}
 	else{
 		res.setHeader("Authorization",is_token_set.message);
-		res.send("Logged in successfully\n" + JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
+		console.log("send==" + JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
+		res.send(JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
 	}
 }
 //------------------------------------------------------------------------------------------------

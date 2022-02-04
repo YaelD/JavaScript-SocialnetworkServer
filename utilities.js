@@ -245,7 +245,7 @@ async function remove_token(token, tokens_map){
 
 async function get_all_users(num_of_users){
 	const arr_users = [];
-	for(let i = 1; i < num_of_users; ++i){
+	for(let i = 0; i < num_of_users; ++i){
 		let content = await file_handling.read_file('./users/' + i + file_handling.user_details_file);
 		if(content!= null){
 			user_data = JSON.parse(content);
