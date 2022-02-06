@@ -79,7 +79,6 @@ async function login(req, res){
 	}
 	else{
 		res.setHeader("Authorization",is_token_set.message);
-		console.log("send==" + JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
 		res.send(JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
 	}
 }
@@ -193,7 +192,6 @@ async function get_all_messages(req, res){
 	const id = is_valid_user.message;
 	let arr = await file_handling.get_arr_from_file('./users/' + id + file_handling.messages_file);
 	arr.sort(messages.compare_message);
-	arr = arr.slice(0,10);
 	res.send(JSON.stringify(arr,['type_message','sender_name','sender_id', 'recipient_name' ,'recipient_id', 'message', 'creation_date','message_id']));
 }
 //------------------------------------------------------------------------------------------------
@@ -277,7 +275,7 @@ async function send_broadcast_message_by_admin(req, res){
 	let body = req.body.text;
 	let users_arr = await utilities.get_all_users(user_id);
 	let message = new messages.Message(body, admin.id, admin.name, 0, "Everbody", "sent", message_id++);
-	await utilities.create_message(0, message, "sent");
+	//await utilities.create_message(0, message, "sent");
 	for( let i= 0; i< users_arr.length; i++){
 		message = new messages.Message(body, admin.id, admin.name ,users_arr[i].id,users_arr[i].name, "received", message_id++);
 		 await utilities.create_message(users_arr[i].id, message, "received");
@@ -309,6 +307,7 @@ async function delete_a_post_by_admin(req, res){
 	
 	res.send("Post number " + id_of_post + " deleted successfully!!");
 }
+
 //------------------------------------------------------------------------------------------------
 
 async function logout(req, res)
@@ -359,5 +358,5 @@ module.exports = {
 	send_broadcast_message_by_admin : send_broadcast_message_by_admin,
 	delete_a_post_by_admin : delete_a_post_by_admin,
 	logout : logout,
-	init_server : init_server
+	init_server : init_server,
 }

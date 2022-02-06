@@ -35,9 +35,9 @@ const build_posts_arr = function(post_arr, user_id){
 		let saver = post_arr[index];
 		post_arr.splice(index, 1);
 		post_arr.unshift(saver);
-		user_arr =  post_arr.slice(0,10);
 	}
-	return user_arr;
+	//user_arr =  post_arr.slice(0,10);
+	return post_arr;
 }
 
 //------------------------------------------------------------------------------------------------
