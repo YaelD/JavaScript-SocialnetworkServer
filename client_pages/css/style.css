@@ -1,0 +1,62 @@
+label
+{
+    font-size: medium;
+    color: rgb(59, 59, 243);
+    margin-left: 14px;
+    margin-right: 14px;
+
+    /* text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center; */
+}
+
+body 
+{
+	font-family: arial;
+	color: rgb(70, 82, 255);
+}
+
+
+h1
+{
+	text-align: center;
+}
+
+
+.errorVisible{
+    visibility: visible;
+    color: red;
+    font-size: 12px;
+    font-style: normal;
+}
+
+.errorInvisible{
+    visibility: hidden;
+}
+
+.post{
+    color:black;
+    font-size: 14px;
+    /* border: 2px; */
+    border-color: rgb(46, 10, 146);
+    font-family: cursive;
+    width: 50%;
+    border-style:solid;
+    border-width: medium;
+    text-align: center; 
+    margin: auto;
+    padding: 10px; 
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+textarea{
+    width: 30%;
+    height: 80px;
+    margin:auto;
+    margin-right: 10px;
+    margin-top: 5px;
+    border: black 2px solid;
+
+}

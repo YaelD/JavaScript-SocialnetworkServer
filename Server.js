@@ -2,6 +2,8 @@
 const express = require('express')
 const package = require('./package.json');
 const server_functions = require("./server_functions");
+const path = require('path')
+
 
 const app = express()
 
@@ -19,16 +21,20 @@ const set_content_type = function (req, res, next)
 	res.setHeader("Access-Control-Max-Age","86400")
 	next()
 }
-
+//app.use(express.static('client_pages'));
+app.use(express.static( path.join(__dirname,'client_pages')));
 app.use( set_content_type );
 app.use(express.json());  // to support JSON-encoded bodies
 app.use(express.urlencoded( // to support URL-encoded bodies
 {  
   extended: true
 }));
+
+
 //------------------------------------------------------------------------------------------------
 
 const router = express.Router();
+app.get('/', (req, res) => { server_functions.get_page(req, res)});
 router.post('/users/login', (req, res) => { server_functions.login(req, res) })
 router.post('/users/register', (req, res) => { server_functions.register(req, res) })
 router.put('/users/post', (req, res) => { server_functions.posting_new_post(req, res) })
@@ -42,7 +48,7 @@ router.post('/admin/message', (req, res) => { server_functions.send_broadcast_me
 router.delete('/admin/posts', (req, res) => { server_functions.delete_a_post_by_admin(req, res) })
 router.put('/users/logout', (req, res) => { server_functions.logout(req, res) })
 app.use('/social_network',router)
-
+  
 server_functions.init_server();
 let msg = `${package.description} listening at port ${port}`
 app.listen(port, () => { console.log( msg ) ; })

@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+
+<head>
+	<title>wanna be Facebook</title>
+	<!-- Note: when deploying, replace "development.js" with "production.min.js". -->
+	<script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+	<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+
+
+
+	<script src="/js/messages.js"></script>
+	<script src="/js/homepage_container.js"></script>
+	<script src="/js/login.js"></script>
+	<script src="/js/register.js"></script>
+	<script src="/js/ReactContainer.js"></script>
+	<script src="/js/posts.js"></script>
+	<script src="/js/admin.js"></script>
+
+
+	<link rel="stylesheet" type='text/css' href="/css/style.css">
+	
+</head>
+
+<body>
+
+	<div class="background"> 
+		<h1>wanna be Facebook<h1>
+	
+			<div id='root'></id>
+	</div>
+
+</body>
+
+<script>
+const domContainer = document.querySelector('#root');
+ReactDOM.render( React.createElement(ReactContainer), domContainer);
+</script>
+
+
+</html>

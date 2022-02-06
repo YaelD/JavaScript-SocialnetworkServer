@@ -322,6 +322,14 @@ async function logout(req, res)
 }
 //------------------------------------------------------------------------------------------------
 
+async function get_page(req, res){
+	// html_page = await file_handling.read_file("./client_pages/index.html");
+	// console.log("in get page===" + html_page);
+	res.type('html')
+	res.sendFile('client_pages/index.html', {root: __dirname });
+}
+
+
 function send_error_response (status_code, message, res){
 	res.status( status_code );
 	res.send( message );
@@ -359,4 +367,5 @@ module.exports = {
 	delete_a_post_by_admin : delete_a_post_by_admin,
 	logout : logout,
 	init_server : init_server,
+	get_page : get_page
 }
