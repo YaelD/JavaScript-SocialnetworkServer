@@ -5,24 +5,27 @@ label
     margin-left: 14px;
     margin-right: 14px;
 
-    /* text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center; */
+
 }
 
 body 
 {
 	font-family: arial;
-	color: rgb(70, 82, 255);
 }
 
 
 h1
 {
 	text-align: center;
+    color: rgb(70, 82, 255);
 }
 
+#root{
+    text-align: center;
+    display:contents;
+    justify-content: center;
+    align-items: center;
+}
 
 .errorVisible{
     visibility: visible;

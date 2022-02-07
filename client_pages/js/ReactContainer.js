@@ -80,11 +80,7 @@ class ReactContainer extends React.Component {
 
     renderHome() {
 
-        return React.createElement(
-            "div",
-            null,
-            React.createElement(HomePage, { token: this.state.token, user: this.state.user, logOut: this.handlelogOut })
-        );
+        return React.createElement(HomePage, { token: this.state.token, user: this.state.user, logOut: this.handlelogOut });
     }
 
     onRegisterClick() {

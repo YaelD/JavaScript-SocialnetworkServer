@@ -132,10 +132,10 @@ class PostPage extends React.Component {
 	render() {
 		return React.createElement(
 			'div',
-			null,
+			{ className: 'post_page' },
 			React.createElement(
 				'form',
-				{ onSubmit: this.handleSubmit },
+				{ onSubmit: this.handleSubmit, className: 'write_post' },
 				React.createElement(
 					'label',
 					null,
@@ -152,7 +152,7 @@ class PostPage extends React.Component {
 			),
 			React.createElement(
 				'div',
-				null,
+				{ className: 'Posts' },
 				React.createElement(PostList, { handle_get_posts: this.handle_get_posts, posts: this.state.posts })
 			)
 		);
