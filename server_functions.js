@@ -78,16 +78,22 @@ async function login(req, res){
 		return;
 	}
 	else{
-		res.setHeader("Authorization",is_token_set.message);
+		//res.setHeader("Authorization",is_token_set.message);
+
+		res.cookie('token',JSON.parse(is_token_set.message).token, {path: '/social_network'} )
+
 		res.send(JSON.stringify(user_data,['email_address','name', 'id', 'status', 'creation_date']));
 	}
 }
 //------------------------------------------------------------------------------------------------
 
 async function posting_new_post(req, res){
-	const get_id_response = await utilities.get_id_from_token(req.get("Authorization"),tokens_map);
-	if(get_id_response.status != status_codes.OK){
-		send_error_response(get_id_response.status, get_id_response.message, res);
+	
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"),tokens_map);
+	if(is_valid_user.status != status_codes.OK){
+		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
 	}
 	let params = new Map();
@@ -98,7 +104,7 @@ async function posting_new_post(req, res){
 		return;
 	}
 	const text = req.body.text;
-	let user = await utilities.get_user_by_id(get_id_response.message)
+	let user = await utilities.get_user_by_id(is_valid_user.message)
 	let post = new posts.Post(text, user.id, user.name, post_id++);
 	await post.write_post_to_file();
 	//await file_handling.add_to_arr_file(post, file_handling.posts_path);
@@ -107,7 +113,10 @@ async function posting_new_post(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post(req, res){
-	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
@@ -132,7 +141,10 @@ async function delete_a_post(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function get_all_posts(req, res){
-	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status,is_valid_user.message , res);
 		return;
@@ -149,7 +161,10 @@ async function get_all_posts(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function send_message(req, res){
-	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status,is_valid_user.message , res);
 		return;
@@ -184,7 +199,10 @@ async function send_message(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function get_all_messages(req, res){
-	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
@@ -197,7 +215,10 @@ async function get_all_messages(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function send_all_users(req, res){
-	const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_valid_user = await utilities.get_id_from_token(cookie, tokens_map);
+	
+	//const is_valid_user = await utilities.get_id_from_token(req.get("Authorization"), tokens_map);
 	if(is_valid_user.status != status_codes.OK){
 		send_error_response(is_valid_user.status, is_valid_user.message, res);
 		return;
@@ -217,7 +238,10 @@ async function send_all_users(req, res){
 
 async function update_user_status_by_admin(req, res)
 {
-	const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_admin = await utilities.check_if_admin(cookie, tokens_map);
+	//const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
+
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -260,7 +284,9 @@ async function update_user_status_by_admin(req, res)
 //------------------------------------------------------------------------------------------------
 
 async function send_broadcast_message_by_admin(req, res){
-	const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_admin = await utilities.check_if_admin(cookie, tokens_map);
+	//const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -285,7 +311,9 @@ async function send_broadcast_message_by_admin(req, res){
 //------------------------------------------------------------------------------------------------
 
 async function delete_a_post_by_admin(req, res){
-	const is_admin = await utilities.check_if_admin(req.get("Authorization"),tokens_map);
+	const cookie = req.get("Cookie").split('=')[1];
+	const is_admin = await utilities.check_if_admin(cookie, tokens_map);
+	//const is_admin = await utilities.check_if_admin(req.get("Authorization"), tokens_map);
 	if(is_admin.status != status_codes.OK){
 		send_error_response(is_admin.status, is_admin.message, res);
 		return;
@@ -312,7 +340,8 @@ async function delete_a_post_by_admin(req, res){
 
 async function logout(req, res)
 {
-	const token = req.get("Authorization");
+	//const token = req.get("Authorization");
+	const token = req.get("Cookie").split('=')[1];
 	const is_removed = await utilities.remove_token(token, tokens_map);
 	if(is_removed.status != status_codes.OK){
 		send_error_response(is_removed.status,is_removed.message, res);

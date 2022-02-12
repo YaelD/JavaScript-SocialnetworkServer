@@ -30,7 +30,7 @@ class ReactContainer extends React.Component {
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.status == 200) {
-            alert('The user ' + this.state.email + ' registered successfully');
+            alert('The user ' + userEmail + ' registered successfully');
             this.setState({ currPage: this.state.LOGIN });
         } else {
             const err = await response.text();
@@ -45,9 +45,9 @@ class ReactContainer extends React.Component {
         });
         if (response.status == 200) {
 
-            const curr_token = JSON.parse(response.headers.get("Authorization")).token;
+            //const curr_token = JSON.parse(response.headers.get("Authorization")).token;
             this.setState({
-                token: curr_token,
+                //token: curr_token,
                 user: await response.json(),
                 currPage: this.state.HOME_PAGE
             });
@@ -68,12 +68,13 @@ class ReactContainer extends React.Component {
     }
     async handlelogOut() {
         const response = await fetch('http://localhost:2718/social_network/users/logout', { method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+            headers: { 'Content-Type': 'application/json'}
         });
         if (response.status != 200) {
             throw new Error('Error while fetching messages');
         }
         const text = await response.text();
+        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/social_network;";
         this.setState({ currPage: this.state.LOGIN });
         alert(text);
     }

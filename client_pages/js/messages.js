@@ -116,7 +116,7 @@ class MessagePage extends React.Component {
 	async handle_send_message() {
 		const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'PUT',
 			body: JSON.stringify({ text: this.state.text_message, recipient_id: this.state.selected_user }),
-			headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+			headers: { 'Content-Type': 'application/json' }
 		});
 		if (response.status == 200) {
 			this.update_state('', this.state.messagesList, this.state.token, false, this.state.usersList);
@@ -128,7 +128,7 @@ class MessagePage extends React.Component {
 
 	async handle_get_messages() {
 		const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'GET',
-			headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+			headers: { 'Content-Type': 'application/json' }
 		});
 		if (response.status != 200) {
 			throw new Error('Error while fetching messages');
@@ -139,7 +139,7 @@ class MessagePage extends React.Component {
 
 	async handle_get_all_users() {
 		const response = await fetch('http://localhost:2718/social_network/users', { method: 'GET',
-			headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+			headers: { 'Content-Type': 'application/json' }
 		});
 		if (response.status != 200) {
 			throw new Error('Error while fetching messages');

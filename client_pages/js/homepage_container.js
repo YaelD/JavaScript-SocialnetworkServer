@@ -90,7 +90,7 @@ class HomePage extends React.Component {
 
     async getNumOfPosts() {
         const response = await fetch('http://localhost:2718/social_network/users/post', { method: 'GET',
-            headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+            headers: { 'Content-Type': 'application/json'}
         });
         if (response.status != 200) {
             throw new Error('Error while fetching posts');
@@ -101,7 +101,7 @@ class HomePage extends React.Component {
 
     async getNumOfMessages() {
         const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'GET',
-            headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+            headers: { 'Content-Type': 'application/json' }
         });
         if (response.status != 200) {
             throw new Error('Error while fetching messages');
@@ -241,9 +241,13 @@ class AboutWindow extends React.Component {
         return React.createElement(
             "div",
             null,
-            "This is our app ",
+            "Wanna Be Facebook \u2122",
             React.createElement("br", null),
-            " Hope you will enjoy it!"
+            "Created by Yael Davidov yaeldv@mta.ac.il ",
+            React.createElement("br", null),
+            "Matan Peretz matanpe@mta.ac.il ",
+            React.createElement("br", null),
+            "This is a basic social network app"
         );
     }
 }

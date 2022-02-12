@@ -317,7 +317,7 @@ class AdminPage extends React.Component {
     async handle_change_status(userID, newStatus) {
         const response = await fetch('http://localhost:2718/social_network/admin/users', { method: 'PUT',
             body: JSON.stringify({ id: userID, status: newStatus }),
-            headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
+            headers: { 'Content-Type': 'application/json'}
         });
         if (response.status == 200) {
             await this.handle_get_users();
