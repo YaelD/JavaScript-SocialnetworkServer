@@ -11,8 +11,8 @@ label
 body 
 {
 	font-family: arial;
+    cursor:pointer;
 }
-
 
 h1
 {

@@ -93,7 +93,6 @@ class MessagePage extends React.Component {
 	async componentDidUpdate(prevProps) {
 		if (prevProps.isRefreshed != this.props.isRefreshed) {
 			this.props.onHide();
-			console.log("in Message componenet did Update");
 			const messages = await this.handle_get_messages();
 			const newUsers = await this.handle_get_all_users();
 			this.setState({ messagesList: messages, usersList: newUsers });

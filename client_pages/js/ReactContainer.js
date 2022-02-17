@@ -39,12 +39,11 @@ class ReactContainer extends React.Component {
     }
 
     async handle_login(userEmail, userPassword) {
-        const response = await fetch('http://localhost:2718/social_network/users/login', { method: 'POST',
+        const response = await fetch('https://localhost:2718/social_network/users/login', { method: 'POST',
             body: JSON.stringify({ password: userPassword, email: userEmail }),
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.status == 200) {
-
             //const curr_token = JSON.parse(response.headers.get("Authorization")).token;
             this.setState({
                 //token: curr_token,

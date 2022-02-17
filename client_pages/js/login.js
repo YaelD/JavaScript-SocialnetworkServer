@@ -71,7 +71,7 @@ class Login extends React.Component {
         ),
         React.createElement('br', null),
         React.createElement('br', null),
-        React.createElement('input', { type: 'submit', value: 'Login' })
+        React.createElement('input', { type: 'submit', id: 'login', value: 'Login' })
       ),
       React.createElement(
         'label',

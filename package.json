@@ -1,7 +1,7 @@
 {
   "name": "ex02",
   "version": "1.0.0",
-  "description": "ex2 js course",
+  "description": "ex3 js course",
   "main": "Server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
