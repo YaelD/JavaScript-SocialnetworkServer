@@ -1,4 +1,3 @@
-
 class ReactContainer extends React.Component {
     constructor(props) {
         super(props);
@@ -21,7 +20,7 @@ class ReactContainer extends React.Component {
     }
 
     async handle_register(userName, userEmail, userPassword) {
-        const response = await fetch('http://localhost:2718/social_network/users/register', { method: 'POST',
+        const response = await fetch('/social_network/users/register', { method: 'POST',
             body: JSON.stringify({
                 name: userName,
                 password: userPassword,
@@ -39,14 +38,12 @@ class ReactContainer extends React.Component {
     }
 
     async handle_login(userEmail, userPassword) {
-        const response = await fetch('https://localhost:2718/social_network/users/login', { method: 'POST',
+        const response = await fetch('/social_network/users/login', { method: 'POST',
             body: JSON.stringify({ password: userPassword, email: userEmail }),
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.status == 200) {
-            //const curr_token = JSON.parse(response.headers.get("Authorization")).token;
             this.setState({
-                //token: curr_token,
                 user: await response.json(),
                 currPage: this.state.HOME_PAGE
             });
@@ -66,7 +63,7 @@ class ReactContainer extends React.Component {
         }
     }
     async handlelogOut() {
-        const response = await fetch('http://localhost:2718/social_network/users/logout', { method: 'PUT',
+        const response = await fetch('/social_network/users/logout', { method: 'PUT',
             headers: { 'Content-Type': 'application/json'}
         });
         if (response.status != 200) {

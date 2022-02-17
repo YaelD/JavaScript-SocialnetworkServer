@@ -62,7 +62,7 @@ class Posts extends React.Component {
 	// }
 
 	async handle_get_posts() {
-		const response = await fetch('http://localhost:2718/social_network/users/post', { method: 'GET',
+		const response = await fetch('/social_network/users/post', { method: 'GET',
 			headers: { 'Content-Type': 'application/json', 'Authorization': '07c5546107af5a' }
 		});
 		if (response.status != 200) {

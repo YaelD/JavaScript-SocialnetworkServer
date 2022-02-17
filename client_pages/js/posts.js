@@ -100,7 +100,7 @@ class PostPage extends React.Component {
 	}
 
 	async handle_add_post() {
-		const response = await fetch('http://localhost:2718/social_network/users/post', { method: 'PUT',
+		const response = await fetch('/social_network/users/post', { method: 'PUT',
 			body: JSON.stringify({ text: this.state.text_post }),
 			headers: { 'Content-Type': 'application/json'}
 		});
@@ -115,7 +115,7 @@ class PostPage extends React.Component {
 	}
 
 	async handle_get_posts() {
-		const response = await fetch('http://localhost:2718/social_network/users/post', { method: 'GET',
+		const response = await fetch('/social_network/users/post', { method: 'GET',
 			headers: { 'Content-Type': 'application/json'}
 		});
 		if (response.status != 200) {

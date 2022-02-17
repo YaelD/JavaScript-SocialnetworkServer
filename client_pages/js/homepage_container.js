@@ -90,7 +90,7 @@ class HomePage extends React.Component {
     }
 
     async getNumOfPosts() {
-        const response = await fetch('http://localhost:2718/social_network/users/post', { method: 'GET',
+        const response = await fetch('/social_network/users/post', { method: 'GET',
             headers: { 'Content-Type': 'application/json'}
         });
         if (response.status != 200) {
@@ -101,7 +101,7 @@ class HomePage extends React.Component {
     }
 
     async getNumOfMessages() {
-        const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'GET',
+        const response = await fetch('/social_network/users/message', { method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.status != 200) {
@@ -181,30 +181,37 @@ class HomePage extends React.Component {
                 "div",
                 { className: "topMenu" },
                 React.createElement(
-                    "button",
-                    { onClick: this.handleHome },
-                    " Home"
+                    "div",
+                    { className: "navButtons" },
+                    React.createElement(
+                        "button",
+                        { onClick: this.handleHome },
+                        " Home"
+                    ),
+                    React.createElement(
+                        "button",
+                        { onClick: this.handleMessage },
+                        " Messages"
+                    ),
+                    this.state.userDetails.id == 0 ? React.createElement(
+                        "button",
+                        { onClick: this.handleAdmin },
+                        " Admin"
+                    ) : '',
+                    React.createElement(
+                        "button",
+                        { onClick: this.handleAbout },
+                        " About"
+                    ),
+                    React.createElement(
+                        "button",
+                        { onClick: this.handleLogout },
+                        " LogOut"
+                    )
                 ),
-                React.createElement(
-                    "button",
-                    { onClick: this.handleMessage },
-                    " Messages"
-                ),
-                this.state.userDetails.id == 0 ? React.createElement(
-                    "button",
-                    { onClick: this.handleAdmin },
-                    " Admin"
-                ) : '',
-                React.createElement(
-                    "button",
-                    { onClick: this.handleAbout },
-                    " About"
-                ),
-                React.createElement(
-                    "button",
-                    { onClick: this.handleLogout },
-                    " LogOut"
-                ),
+                React.createElement("br", null),
+                "Hello " + this.state.userDetails.name,
+                React.createElement("br", null),
                 this.state.showAbout ? React.createElement(AboutWindow, null) : '',
                 React.createElement(
                     "div",

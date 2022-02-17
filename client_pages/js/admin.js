@@ -315,7 +315,7 @@ class AdminPage extends React.Component {
     }
 
     async handle_change_status(userID, newStatus) {
-        const response = await fetch('http://localhost:2718/social_network/admin/users', { method: 'PUT',
+        const response = await fetch('/social_network/admin/users', { method: 'PUT',
             body: JSON.stringify({ id: userID, status: newStatus }),
             headers: { 'Content-Type': 'application/json'}
         });
@@ -331,7 +331,7 @@ class AdminPage extends React.Component {
 
     async handle_send_message_to_all(message) {
         console.log("The token=", message);
-        const response = await fetch('http://localhost:2718/social_network/admin/message', { method: 'POST',
+        const response = await fetch('/social_network/admin/message', { method: 'POST',
             body: JSON.stringify({ text: message }),
             headers: { 'Content-Type': 'application/json', "Authorization": this.state.token }
         });
@@ -344,7 +344,7 @@ class AdminPage extends React.Component {
     }
 
     async handle_get_users() {
-        const response = await fetch('http://localhost:2718/social_network/users', { method: 'GET',
+        const response = await fetch('/social_network/users', { method: 'GET',
             headers: { 'Content-Type': 'application/json', 'Authorization': this.state.token }
         });
         if (response.status == 200) {

@@ -113,7 +113,7 @@ class MessagePage extends React.Component {
 	}
 
 	async handle_send_message() {
-		const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'PUT',
+		const response = await fetch('/social_network/users/message', { method: 'PUT',
 			body: JSON.stringify({ text: this.state.text_message, recipient_id: this.state.selected_user }),
 			headers: { 'Content-Type': 'application/json' }
 		});
@@ -126,7 +126,7 @@ class MessagePage extends React.Component {
 	}
 
 	async handle_get_messages() {
-		const response = await fetch('http://localhost:2718/social_network/users/message', { method: 'GET',
+		const response = await fetch('/social_network/users/message', { method: 'GET',
 			headers: { 'Content-Type': 'application/json' }
 		});
 		if (response.status != 200) {
@@ -137,7 +137,7 @@ class MessagePage extends React.Component {
 	}
 
 	async handle_get_all_users() {
-		const response = await fetch('http://localhost:2718/social_network/users', { method: 'GET',
+		const response = await fetch('/social_network/users', { method: 'GET',
 			headers: { 'Content-Type': 'application/json' }
 		});
 		if (response.status != 200) {
